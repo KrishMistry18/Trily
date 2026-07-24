@@ -45,3 +45,9 @@ next-env.d.ts
 /coverage/
 
 /lib/generated/prisma
+
+# IDE / AI agent skill files (local tooling only)
+/.agents/
+/.claude/
+/.windsurf/
+skills-lock.json
