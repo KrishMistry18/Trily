@@ -1,4 +1,4 @@
-# Implementation Plan: Orbis
+ # Implementation Plan: Orbis
 
 ## Overview
 
@@ -32,7 +32,7 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
     - **Property 8: New projects always have all required fields populated**
     - **Validates: Requirements 3.6**
 
-- [ ] 3. Authentication — NextAuth setup
+- [x] 3. Authentication — NextAuth setup
   - Install NextAuth v5 and Prisma adapter
   - Create `auth.ts` config with `CredentialsProvider` (bcrypt, min 8 chars) and `GoogleProvider`
   - Create `/api/auth/[...nextauth]/route.ts` catch-all
@@ -41,15 +41,15 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Add `callbackUrl` query param preservation on redirect to login
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8_
 
-  - [ ] 3.1 Write property test: invalid login messages are information-safe
+  - [x] 3.1 Write property test: invalid login messages are information-safe
     - **Property 1: Invalid login messages are information-safe**
     - **Validates: Requirements 1.6**
 
-  - [ ] 3.2 Write property test: all protected routes redirect unauthenticated requests
+  - [x] 3.2 Write property test: all protected routes redirect unauthenticated requests
     - **Property 2: All protected routes redirect unauthenticated requests**
     - **Validates: Requirements 1.8**
 
-- [ ] 4. Auth UI — login and sign-up pages
+- [x] 4. Auth UI — login and sign-up pages
   - Create `app/(auth)/login/page.tsx`: email/password form + Google OAuth button, error display
   - Create `app/(auth)/signup/page.tsx`: email/password form, calls `/api/auth/signup`
   - Add form validation (Zod + react-hook-form): min 8-char password, valid email format
@@ -57,7 +57,7 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Make both pages mobile-responsive at 320px+
   - _Requirements: 1.1, 1.4, 1.6, 19.1_
 
-- [ ] 5. Credit and billing infrastructure
+- [x] 5. Credit and billing infrastructure
   - Create `lib/billing/stripe.ts`: initialise Stripe SDK (server-only), export typed helpers
   - Create `lib/billing/credits.ts`:
     - `getCreditBalance(userId)` — query latest `balanceAfter` from CreditLedger
@@ -67,15 +67,15 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Create `lib/billing/config.ts`: TIER_CONFIG, CREDIT_COSTS constants
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
 
-  - [ ] 5.1 Write property test: Credit Ledger entries always contain all required fields
+  - [x] 5.1 Write property test: Credit Ledger entries always contain all required fields
     - **Property 4: Credit Ledger entries always contain all required fields**
     - **Validates: Requirements 2.5**
 
-  - [ ] 5.2 Write property test: zero-credit users are always blocked from generation
+  - [x] 5.2 Write property test: zero-credit users are always blocked from generation
     - **Property 3: Zero-credit users are always blocked from generation**
     - **Validates: Requirements 2.4, 3.4**
 
-- [ ] 6. Stripe webhook handler
+- [x] 6. Stripe webhook handler
   - Create `app/api/billing/webhook/route.ts`:
     - Validate Stripe signature with `stripe.webhooks.constructEvent`; return 400 on failure without touching DB
     - Check `StripeEvent` table for duplicate event ID (idempotency); return 200 if seen
@@ -86,21 +86,21 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
     - All ledger writes in a single DB transaction
   - _Requirements: 2.3, 2.7, 2.8_
 
-  - [ ] 6.1 Write property test: invalid Stripe webhook signatures never modify the Credit Ledger
+  - [x] 6.1 Write property test: invalid Stripe webhook signatures never modify the Credit Ledger
     - **Property 6: Invalid Stripe webhook signatures never modify the Credit Ledger**
     - **Validates: Requirements 2.8**
 
-  - [ ] 6.2 Write property test: subscription downgrade preserves all projects and versions
+  - [x] 6.2 Write property test: subscription downgrade preserves all projects and versions
     - **Property 5: Subscription downgrade preserves all projects and versions**
     - **Validates: Requirements 2.7**
 
-- [ ] 7. Stripe Checkout and Portal routes
+- [x] 7. Stripe Checkout and Portal routes
   - Create `app/api/billing/checkout/route.ts`: POST, creates Stripe Checkout session (subscription or payment), returns URL
   - Create `app/api/billing/portal/route.ts`: POST, creates Stripe Customer Portal session, returns URL
   - Upsert `User.stripeCustomerId` when creating a new customer
   - _Requirements: 2.2, 13.2, 13.3_
 
-- [ ] 8. Rate limiter
+- [x] 8. Rate limiter
   - Create `lib/rate-limit/index.ts` using Redis ZADD/ZREMRANGEBYSCORE sliding window
   - Key: `rate:{userId}`, window: `RATE_LIMIT_WINDOW_MS` (default 60000), max: `RATE_LIMIT_MAX_REQUESTS` (default 5)
   - Read config from env on every check (no caching) so changes apply without restart
@@ -108,11 +108,11 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Create `app/api/rate-limit/check/route.ts` (internal helper used by middleware)
   - _Requirements: 15.1, 15.2, 15.3, 15.4_
 
-  - [ ] 8.1 Write property test: rate limiter always rejects requests exceeding the configured limit
+  - [x] 8.1 Write property test: rate limiter always rejects requests exceeding the configured limit
     - **Property 26: Rate limiter always rejects requests exceeding the configured limit**
     - **Validates: Requirements 15.1, 15.2**
 
-- [ ] 9. Storage service
+- [x] 9. Storage service
   - Install `@aws-sdk/client-s3` and `@aws-sdk/s3-request-presigner`
   - Create `lib/storage/s3Client.ts`: initialise S3Client from env (supports R2 endpoint override)
   - Create `lib/storage/index.ts` implementing `StorageService` interface:
@@ -124,11 +124,11 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - All credentials remain server-side only
   - _Requirements: 17.1, 17.2, 17.3, 17.4_
 
-  - [ ] 9.1 Write property test: storage pre-signed URLs always have at least 1-hour expiry
+  - [x] 9.1 Write property test: storage pre-signed URLs always have at least 1-hour expiry
     - **Property 27: Storage pre-signed URLs always have at least 1-hour expiry**
     - **Validates: Requirements 10.3, 17.3**
 
-- [ ] 10. AI Service Layer — provider abstraction and retry logic
+- [x] 10. AI Service Layer — provider abstraction and retry logic
   - Create `lib/ai/providers/anthropic.ts`: wrap `@anthropic-ai/sdk`, implement `LLMProvider` interface
   - Create `lib/ai/providers/openai.ts`: wrap `openai`, implement `LLMProvider` interface
   - Create `lib/ai/retry.ts`: `withRetry(fn, attempts=3)` with exponential backoff (1s → 2s → 4s, max 16s) and 60s timeout per attempt
@@ -136,19 +136,19 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Create `lib/ai/index.ts`: exports active provider selected by `AI_PROVIDER` env variable
   - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5_
 
-  - [ ] 10.1 Write property test: AI Service Layer timeout triggers on all calls exceeding 60 seconds
+  - [x] 10.1 Write property test: AI Service Layer timeout triggers on all calls exceeding 60 seconds
     - **Property 24: AI Service Layer timeout triggers on all calls exceeding 60 seconds**
     - **Validates: Requirements 14.2**
 
-  - [ ] 10.2 Write property test: AI Service Layer retry count never exceeds 3 and follows exponential backoff
+  - [x] 10.2 Write property test: AI Service Layer retry count never exceeds 3 and follows exponential backoff
     - **Property 25: AI Service Layer retry count never exceeds 3 and follows exponential backoff**
     - **Validates: Requirements 14.3**
 
-  - [ ] 10.3 Write property test: every LLM and image API call produces a Token_Log record
+  - [x] 10.3 Write property test: every LLM and image API call produces a Token_Log record
     - **Property 10: Every LLM and image API call produces a Token_Log record**
     - **Validates: Requirements 4.5, 5.5, 14.5, 18.5**
 
-- [ ] 11. Checkpoint — Ensure all tests pass
+- [x] 11. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 12. Spec Generator service
