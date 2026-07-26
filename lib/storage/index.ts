@@ -1,7 +1,7 @@
 /**
  * lib/storage/index.ts
  *
- * StorageService — thin wrapper around the S3 client that implements all
+ * StorageService — thin wrapper around Firebase Storage that implements all
  * object-storage operations required by Orbis.
  *
  * Path conventions (mirrors design.md §Storage Layout):
@@ -12,13 +12,7 @@
  * All credentials and URL-signing happen server-side only.
  * Requirements: 17.1, 17.2, 17.3, 17.4
  */
-
-import {
-  GetObjectCommand,
-  PutObjectCommand,
-} from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { s3 } from "./s3Client";
+import { firebaseAdminApp } from "../db";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -33,20 +27,16 @@ export interface StorageService {
     userId: string,
     projectId: string,
     versionId: string,
-    files: CodeFiles
+    files: CodeFiles,
   ): Promise<void>;
 
-  readVersionFiles(
-    userId: string,
-    projectId: string,
-    versionId: string
-  ): Promise<CodeFiles>;
+  readVersionFiles(userId: string, projectId: string, versionId: string): Promise<CodeFiles>;
 
   writeZipArchive(
     userId: string,
     projectId: string,
     versionId: string,
-    zip: Buffer
+    zip: Buffer,
   ): Promise<string>;
 
   getPresignedUrl(key: string, expiresInSeconds?: number): Promise<string>;
@@ -55,7 +45,7 @@ export interface StorageService {
     userId: string,
     projectId: string,
     filename: string,
-    buffer: Buffer
+    buffer: Buffer,
   ): Promise<string>;
 }
 
@@ -63,27 +53,15 @@ export interface StorageService {
 // Path helpers (exported so property tests can verify key construction)
 // ---------------------------------------------------------------------------
 
-export function versionHtmlKey(
-  userId: string,
-  projectId: string,
-  versionId: string
-): string {
+export function versionHtmlKey(userId: string, projectId: string, versionId: string): string {
   return `${userId}/${projectId}/${versionId}/index.html`;
 }
 
-export function versionZipKey(
-  userId: string,
-  projectId: string,
-  versionId: string
-): string {
+export function versionZipKey(userId: string, projectId: string, versionId: string): string {
   return `${userId}/${projectId}/${versionId}/export.zip`;
 }
 
-export function imageKey(
-  userId: string,
-  projectId: string,
-  filename: string
-): string {
+export function imageKey(userId: string, projectId: string, filename: string): string {
   return `${userId}/${projectId}/images/${filename}`;
 }
 
@@ -98,7 +76,11 @@ export const MIN_PRESIGNED_EXPIRY_SECONDS = 3600;
 // Implementation
 // ---------------------------------------------------------------------------
 
-const bucket = process.env.S3_BUCKET_NAME ?? "";
+const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? "";
+
+function getBucket() {
+  return firebaseAdminApp.storage().bucket(bucketName);
+}
 
 /**
  * writeVersionFiles
@@ -112,17 +94,16 @@ async function writeVersionFiles(
   userId: string,
   projectId: string,
   versionId: string,
-  files: CodeFiles
+  files: CodeFiles,
 ): Promise<void> {
   const key = versionHtmlKey(userId, projectId, versionId);
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: files.html,
-      ContentType: "text/html; charset=utf-8",
-    })
-  );
+  const file = getBucket().file(key);
+
+  await file.save(files.html, {
+    metadata: {
+      contentType: "text/html; charset=utf-8",
+    },
+  });
 }
 
 /**
@@ -134,27 +115,18 @@ async function writeVersionFiles(
 async function readVersionFiles(
   userId: string,
   projectId: string,
-  versionId: string
+  versionId: string,
 ): Promise<CodeFiles> {
   const key = versionHtmlKey(userId, projectId, versionId);
-  const response = await s3.send(
-    new GetObjectCommand({
-      Bucket: bucket,
-      Key: key,
-    })
-  );
+  const file = getBucket().file(key);
 
-  const body = response.Body;
-  if (!body) {
+  const [content] = await file.download();
+
+  if (!content) {
     throw new Error(`Empty response body for key: ${key}`);
   }
 
-  // Consume the stream
-  const chunks: Uint8Array[] = [];
-  for await (const chunk of body as AsyncIterable<Uint8Array>) {
-    chunks.push(chunk);
-  }
-  const html = Buffer.concat(chunks).toString("utf-8");
+  const html = content.toString("utf-8");
   return { html };
 }
 
@@ -170,17 +142,17 @@ async function writeZipArchive(
   userId: string,
   projectId: string,
   versionId: string,
-  zip: Buffer
+  zip: Buffer,
 ): Promise<string> {
   const key = versionZipKey(userId, projectId, versionId);
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: zip,
-      ContentType: "application/zip",
-    })
-  );
+  const file = getBucket().file(key);
+
+  await file.save(zip, {
+    metadata: {
+      contentType: "application/zip",
+    },
+  });
+
   return key;
 }
 
@@ -194,17 +166,22 @@ async function writeZipArchive(
  */
 async function getPresignedUrl(
   key: string,
-  expiresInSeconds: number = MIN_PRESIGNED_EXPIRY_SECONDS
+  expiresInSeconds: number = MIN_PRESIGNED_EXPIRY_SECONDS,
 ): Promise<string> {
   // Clamp to minimum to satisfy Requirement 17.3
   const effectiveExpiry = Math.max(expiresInSeconds, MIN_PRESIGNED_EXPIRY_SECONDS);
 
-  const command = new GetObjectCommand({
-    Bucket: bucket,
-    Key: key,
+  const file = getBucket().file(key);
+
+  // Note: Firebase uses Date objects for expiry
+  const expires = new Date(Date.now() + effectiveExpiry * 1000);
+
+  const [url] = await file.getSignedUrl({
+    action: "read",
+    expires,
   });
 
-  return getSignedUrl(s3, command, { expiresIn: effectiveExpiry });
+  return url;
 }
 
 /**
@@ -219,17 +196,17 @@ async function writeImageFile(
   userId: string,
   projectId: string,
   filename: string,
-  buffer: Buffer
+  buffer: Buffer,
 ): Promise<string> {
   const key = imageKey(userId, projectId, filename);
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: buffer,
-      ContentType: "image/png",
-    })
-  );
+  const file = getBucket().file(key);
+
+  await file.save(buffer, {
+    metadata: {
+      contentType: "image/png",
+    },
+  });
+
   return key;
 }
 

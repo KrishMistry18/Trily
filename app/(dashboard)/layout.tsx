@@ -6,31 +6,25 @@
  *
  * Requirements: 12.1, 13.1, 19.1
  */
-
-import { auth } from "@/auth";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+
+import { auth } from "@/auth";
 
 // ---------------------------------------------------------------------------
 // Credit balance display — fetched server-side
 // ---------------------------------------------------------------------------
 async function CreditBalance({ userId }: { userId: string }) {
   try {
-    // Import db only on server
-    const { db } = await import("@/lib/db");
-    const latest = await db.creditLedger.findFirst({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      select: { balanceAfter: true },
-    });
-    const balance = latest?.balanceAfter ?? 0;
+    const { getCreditBalance } = await import("@/lib/billing/credits");
+    const balance = await getCreditBalance(userId);
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-3 py-1 text-xs font-semibold text-accent">
         <span aria-hidden="true">⚡</span>
         {balance} credits
       </span>
     );
-  } catch {
+  } catch (err) {
     return null;
   }
 }
@@ -87,18 +81,13 @@ async function DashboardNav({ userName, userId }: { userName: string; userId: st
 // ---------------------------------------------------------------------------
 // Layout
 // ---------------------------------------------------------------------------
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
 
-  const userName =
-    session.user.name ?? session.user.email?.split("@")[0] ?? "User";
+  const userName = session.user.name ?? session.user.email?.split("@")[0] ?? "User";
 
   return (
     <div className="min-h-screen bg-background">

@@ -4,24 +4,19 @@
  * app/(auth)/login/page.tsx
  *
  * Login page — email/password credentials form + Google OAuth button.
- *
- * Flow:
- *  - Email/password: calls NextAuth signIn('credentials', { email, password, callbackUrl })
- *  - Google OAuth: calls signIn('google', { callbackUrl })
- *  - On auth failure: displays a generic "Invalid email or password" message
- *    (information-safe — never reveals which field failed, Req 1.6)
- *  - Reads callbackUrl from URL search params for post-login redirect (Req 1.7)
- *
- * Requirements: 1.1, 1.6, 1.7, 19.1
+ * Uses Firebase Auth and sets a session cookie on the server.
  */
-
-import { zodResolver } from "@hookform/resolvers/zod";
-import { signIn } from "next-auth/react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
+
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { z } from "zod";
+
+import { auth, googleProvider } from "@/lib/firebase";
 
 // ---------------------------------------------------------------------------
 // Validation schema
@@ -83,33 +78,31 @@ function LoginForm() {
     resolver: zodResolver(loginSchema),
   });
 
+  // Helper to set the server-side session cookie
+  async function setSessionCookie(idToken: string) {
+    const res = await fetch("/api/auth/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken }),
+    });
+    if (!res.ok) throw new Error("Failed to create session");
+  }
+
   // -------------------------------------------------------------------------
   // Credentials sign-in
   // -------------------------------------------------------------------------
   async function onSubmit(values: LoginFormValues) {
     setAuthError(null);
-
-    const result = await signIn("credentials", {
-      email: values.email,
-      password: values.password,
-      callbackUrl,
-      redirect: false,
-    });
-
-    if (!result) {
-      setAuthError("An unexpected error occurred. Please try again.");
-      return;
-    }
-
-    if (result.error) {
+    try {
+      const cred = await signInWithEmailAndPassword(auth, values.email, values.password);
+      const token = await cred.user.getIdToken();
+      await setSessionCookie(token);
+      router.push(callbackUrl);
+      router.refresh();
+    } catch (error: any) {
       // Generic message regardless of whether email or password is wrong (Req 1.6)
       setAuthError("Invalid email or password.");
-      return;
     }
-
-    // Success — navigate to the callback URL
-    router.push(result.url ?? callbackUrl);
-    router.refresh();
   }
 
   // -------------------------------------------------------------------------
@@ -119,8 +112,17 @@ function LoginForm() {
     setIsGoogleLoading(true);
     setAuthError(null);
     try {
-      await signIn("google", { callbackUrl });
-    } catch {
+      const cred = await signInWithPopup(auth, googleProvider);
+      const token = await cred.user.getIdToken();
+      await setSessionCookie(token);
+      router.push(callbackUrl);
+      router.refresh();
+    } catch (error: any) {
+      console.error("GOOGLE AUTH ERROR:", error);
+      if (error.code === "auth/popup-closed-by-user") {
+        setIsGoogleLoading(false);
+        return;
+      }
       setAuthError("Failed to initiate Google sign-in. Please try again.");
       setIsGoogleLoading(false);
     }
@@ -130,9 +132,7 @@ function LoginForm() {
     <div className="bg-background border border-foreground/10 rounded-2xl shadow-lg p-8 space-y-6">
       {/* Header */}
       <div className="text-center space-y-1">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">
-          Welcome back
-        </h1>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Welcome back</h1>
         <p className="text-sm text-foreground/60">Sign in to your Orbis account</p>
       </div>
 
@@ -150,10 +150,7 @@ function LoginForm() {
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         {/* Email field */}
         <div className="space-y-1">
-          <label
-            htmlFor="email"
-            className="block text-sm font-medium text-foreground"
-          >
+          <label htmlFor="email" className="block text-sm font-medium text-foreground">
             Email address
           </label>
           <input
@@ -175,10 +172,7 @@ function LoginForm() {
 
         {/* Password field */}
         <div className="space-y-1">
-          <label
-            htmlFor="password"
-            className="block text-sm font-medium text-foreground"
-          >
+          <label htmlFor="password" className="block text-sm font-medium text-foreground">
             Password
           </label>
           <input
@@ -283,10 +277,7 @@ function LoginForm() {
       {/* Sign-up link */}
       <p className="text-center text-sm text-foreground/60">
         Don&apos;t have an account?{" "}
-        <Link
-          href="/signup"
-          className="font-medium text-primary hover:underline"
-        >
+        <Link href="/signup" className="font-medium text-primary hover:underline">
           Sign up
         </Link>
       </p>

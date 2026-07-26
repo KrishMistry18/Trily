@@ -7,11 +7,12 @@
  *
  * Requirements: 12.1, 12.2, 12.3, 12.4, 19.1
  */
-
-import { auth } from "@/auth";
-import { db } from "@/lib/db";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+
+import { auth } from "@/auth";
+
+import { db } from "@/lib/db";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -60,39 +61,15 @@ function EmptyState() {
           fill="none"
         />
         <circle cx="48" cy="36" r="4" fill="currentColor" />
-        <path
-          d="M28 60 h40"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-        <path
-          d="M36 68 h24"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-        <circle
-          cx="76"
-          cy="20"
-          r="10"
-          fill="currentColor"
-          className="text-primary"
-        />
-        <path
-          d="M76 16 v8 M72 20 h8"
-          stroke="white"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
+        <path d="M28 60 h40" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+        <path d="M36 68 h24" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+        <circle cx="76" cy="20" r="10" fill="currentColor" className="text-primary" />
+        <path d="M76 16 v8 M72 20 h8" stroke="white" strokeWidth="2" strokeLinecap="round" />
       </svg>
 
-      <h2 className="mb-2 text-xl font-semibold text-foreground">
-        No projects yet
-      </h2>
+      <h2 className="mb-2 text-xl font-semibold text-foreground">No projects yet</h2>
       <p className="mb-8 max-w-sm text-sm text-foreground/60">
-        Describe your website in plain language and let Orbis generate it for
-        you in seconds.
+        Describe your website in plain language and let Orbis generate it for you in seconds.
       </p>
 
       {/* CTA */}
@@ -159,12 +136,8 @@ function ProjectCard({ project }: { project: Project }) {
         <h3 className="truncate font-semibold text-foreground group-hover:text-primary transition-colors">
           {project.name}
         </h3>
-        <p className="text-xs text-foreground/50">
-          Edited {formatDate(project.updatedAt)}
-        </p>
-        <p className="text-xs text-foreground/40">
-          {project.totalCreditsUsed} credits used
-        </p>
+        <p className="text-xs text-foreground/50">Edited {formatDate(project.updatedAt)}</p>
+        <p className="text-xs text-foreground/40">{project.totalCreditsUsed ?? 0} credits used</p>
       </div>
     </Link>
   );
@@ -179,17 +152,20 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const projects = await db.project.findMany({
-    where: { userId: session.user.id },
-    orderBy: { updatedAt: "desc" },
-    select: {
-      id: true,
-      name: true,
-      thumbnailUrl: true,
-      totalCreditsUsed: true,
-      updatedAt: true,
-    },
-  });
+  const projectsSnap = await db.collection("projects").where("userId", "==", session.user.id).get();
+
+  const projects = projectsSnap.docs
+    .map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name,
+        thumbnailUrl: data.thumbnailUrl || null,
+        totalCreditsUsed: data.totalCreditsUsed || 0,
+        updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(0),
+      };
+    })
+    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
   return (
     <div className="space-y-6">

@@ -4,25 +4,19 @@
  * app/(auth)/signup/page.tsx
  *
  * Sign-up page — email/password registration form.
- *
- * Flow:
- *  1. Validate email + password (min 8 chars) client-side via Zod.
- *  2. POST to /api/auth/signup.
- *  3. On 201: call signIn('credentials') to establish a session, then redirect
- *     to callbackUrl (or /dashboard).
- *  4. On 400: display field-specific validation errors returned by the server
- *     (Req 1.4).
- *
- * Requirements: 1.1, 1.4, 19.1
+ * Uses Firebase Auth and sets a session cookie on the server.
  */
-
-import { zodResolver } from "@hookform/resolvers/zod";
-import { signIn } from "next-auth/react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
+
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { z } from "zod";
+
+import { auth } from "@/lib/firebase";
 
 // ---------------------------------------------------------------------------
 // Validation schema
@@ -45,14 +39,6 @@ const signupSchema = z
 type SignupFormValues = z.infer<typeof signupSchema>;
 
 // ---------------------------------------------------------------------------
-// Server error shape returned by /api/auth/signup
-// ---------------------------------------------------------------------------
-interface SignupErrorResponse {
-  error: string;
-  fields?: Record<string, string[]>;
-}
-
-// ---------------------------------------------------------------------------
 // Inner form component that uses useSearchParams (must be wrapped in Suspense)
 // ---------------------------------------------------------------------------
 function SignupForm() {
@@ -71,77 +57,55 @@ function SignupForm() {
     resolver: zodResolver(signupSchema),
   });
 
+  // Helper to set the server-side session cookie
+  async function setSessionCookie(idToken: string) {
+    const res = await fetch("/api/auth/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken }),
+    });
+    if (!res.ok) throw new Error("Failed to create session");
+  }
+
   // -------------------------------------------------------------------------
   // Submit handler
   // -------------------------------------------------------------------------
   async function onSubmit(values: SignupFormValues) {
     setServerError(null);
 
-    // 1. Create the user account
-    const res = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: values.email,
-        password: values.password,
-        name: values.name || undefined,
-      }),
-    });
+    try {
+      // 1. Create the user account in Firebase Auth
+      const cred = await createUserWithEmailAndPassword(auth, values.email, values.password);
 
-    if (!res.ok) {
-      if (res.status === 400) {
-        const data: SignupErrorResponse = await res.json();
-
-        // Map server field errors onto react-hook-form fields (Req 1.4)
-        if (data.fields) {
-          for (const [field, messages] of Object.entries(data.fields)) {
-            const message = Array.isArray(messages) ? messages[0] : messages;
-            if (field === "email" || field === "password" || field === "name") {
-              setError(field as keyof SignupFormValues, { message });
-            } else {
-              // Generic fallback for any other field errors
-              setServerError(message ?? data.error);
-            }
-          }
-        } else {
-          setServerError(data.error ?? "Sign-up failed. Please try again.");
-        }
-        return;
+      // 2. Update their profile name if provided
+      if (values.name) {
+        await updateProfile(cred.user, { displayName: values.name });
       }
 
-      setServerError("An unexpected error occurred. Please try again.");
-      return;
+      // 3. Establish session by setting the cookie
+      const token = await cred.user.getIdToken();
+      await setSessionCookie(token);
+
+      // 4. Navigate to the callback URL
+      router.push(callbackUrl);
+      router.refresh();
+    } catch (error: any) {
+      if (error.code === "auth/email-already-in-use") {
+        setError("email", { message: "An account with this email address already exists" });
+      } else if (error.code === "auth/weak-password") {
+        setError("password", { message: "Password is too weak" });
+      } else {
+        setServerError(error.message || "Sign-up failed. Please try again.");
+      }
     }
-
-    // 2. Establish session via credentials sign-in
-    const signInResult = await signIn("credentials", {
-      email: values.email,
-      password: values.password,
-      callbackUrl,
-      redirect: false,
-    });
-
-    if (signInResult?.error) {
-      // Account was created but session could not be established — redirect to login
-      router.push(`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`);
-      return;
-    }
-
-    // 3. Navigate to the callback URL
-    router.push(signInResult?.url ?? callbackUrl);
-    router.refresh();
   }
 
   return (
     <div className="bg-background border border-foreground/10 rounded-2xl shadow-lg p-8 space-y-6">
       {/* Header */}
       <div className="text-center space-y-1">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">
-          Create your account
-        </h1>
-        <p className="text-sm text-foreground/60">
-          Start generating websites with Orbis
-        </p>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Create your account</h1>
+        <p className="text-sm text-foreground/60">Start generating websites with Orbis</p>
       </div>
 
       {/* Server-level error */}
@@ -158,12 +122,8 @@ function SignupForm() {
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
         {/* Name (optional) */}
         <div className="space-y-1">
-          <label
-            htmlFor="name"
-            className="block text-sm font-medium text-foreground"
-          >
-            Name{" "}
-            <span className="text-foreground/40 font-normal">(optional)</span>
+          <label htmlFor="name" className="block text-sm font-medium text-foreground">
+            Name <span className="text-foreground/40 font-normal">(optional)</span>
           </label>
           <input
             id="name"
@@ -184,10 +144,7 @@ function SignupForm() {
 
         {/* Email */}
         <div className="space-y-1">
-          <label
-            htmlFor="email"
-            className="block text-sm font-medium text-foreground"
-          >
+          <label htmlFor="email" className="block text-sm font-medium text-foreground">
             Email address
           </label>
           <input
@@ -209,10 +166,7 @@ function SignupForm() {
 
         {/* Password */}
         <div className="space-y-1">
-          <label
-            htmlFor="password"
-            className="block text-sm font-medium text-foreground"
-          >
+          <label htmlFor="password" className="block text-sm font-medium text-foreground">
             Password
           </label>
           <input
@@ -231,38 +185,27 @@ function SignupForm() {
             </p>
           )}
           {!errors.password && (
-            <p className="text-xs text-foreground/40">
-              Must be at least 8 characters
-            </p>
+            <p className="text-xs text-foreground/40">Must be at least 8 characters</p>
           )}
         </div>
 
         {/* Confirm password */}
         <div className="space-y-1">
-          <label
-            htmlFor="confirmPassword"
-            className="block text-sm font-medium text-foreground"
-          >
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground">
             Confirm password
           </label>
           <input
             id="confirmPassword"
             type="password"
             autoComplete="new-password"
-            aria-describedby={
-              errors.confirmPassword ? "confirm-password-error" : undefined
-            }
+            aria-describedby={errors.confirmPassword ? "confirm-password-error" : undefined}
             aria-invalid={!!errors.confirmPassword}
             {...register("confirmPassword")}
             className="block w-full rounded-lg border border-foreground/20 bg-background px-3 py-2.5 text-sm text-foreground placeholder-foreground/40 shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 transition"
             placeholder="••••••••"
           />
           {errors.confirmPassword && (
-            <p
-              id="confirm-password-error"
-              className="text-xs text-red-600"
-              role="alert"
-            >
+            <p id="confirm-password-error" className="text-xs text-red-600" role="alert">
               {errors.confirmPassword.message}
             </p>
           )}
@@ -308,10 +251,7 @@ function SignupForm() {
       {/* Sign-in link */}
       <p className="text-center text-sm text-foreground/60">
         Already have an account?{" "}
-        <Link
-          href="/login"
-          className="font-medium text-primary hover:underline"
-        >
+        <Link href="/login" className="font-medium text-primary hover:underline">
           Sign in
         </Link>
       </p>

@@ -3,30 +3,32 @@
  *
  * Pure credit-ledger helpers.
  *
- * All functions interact only with the CreditLedger table through the Prisma
- * client.  They accept an optional `tx` (Prisma.TransactionClient) parameter
+ * All functions interact only with the `creditLedgers` Firestore collection.
+ * They accept an optional `tx` (Firebase Transaction) parameter
  * so they can be composed inside a single DB transaction when required.
  *
  * Design note: `balanceAfter` is a denormalised snapshot that lets us retrieve
- * the current balance with a single O(1) query (latest row) rather than
- * summing the entire ledger.  It is always set atomically inside a transaction
- * or the individual insert when no transaction is provided.
+ * the current balance with a single query (latest doc) rather than
+ * summing the entire ledger.
  *
  * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6
  */
-
-import { CreditEventType, Prisma } from "@prisma/client";
+import { randomUUID } from "crypto";
+import * as admin from "firebase-admin";
 
 import { db } from "@/lib/db";
 
-// Re-export so callers can import the enum from one place.
-export { CreditEventType };
+export enum CreditEventType {
+  DEDUCTION = "DEDUCTION",
+  TOP_UP = "TOP_UP",
+  REFUND = "REFUND",
+  MONTHLY_GRANT = "MONTHLY_GRANT",
+}
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-/** The shape of a row returned from CreditLedger queries. */
 export interface CreditLedgerEntry {
   id: string;
   userId: string;
@@ -38,17 +40,7 @@ export interface CreditLedgerEntry {
   createdAt: Date;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Returns the Prisma client to use — either the provided transaction client
- * or the global singleton.
- */
-function client(tx?: Prisma.TransactionClient): Prisma.TransactionClient {
-  return (tx ?? db) as unknown as Prisma.TransactionClient;
-}
+type Transaction = admin.firestore.Transaction;
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -60,131 +52,133 @@ function client(tx?: Prisma.TransactionClient): Prisma.TransactionClient {
  * Reads the `balanceAfter` column from the most recent CreditLedger row for
  * the user (ordered by `createdAt DESC`).  Returns 0 if no ledger entries
  * exist yet.
- *
- * @param userId  The user whose balance to query.
- * @param tx      Optional transaction client.
  */
-export async function getCreditBalance(
-  userId: string,
-  tx?: Prisma.TransactionClient
-): Promise<number> {
-  const c = client(tx);
-  const latest = await c.creditLedger.findFirst({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    select: { balanceAfter: true },
+export async function getCreditBalance(userId: string, tx?: Transaction): Promise<number> {
+  const query = db.collection("creditLedgers").where("userId", "==", userId);
+
+  let snapshot;
+  if (tx) {
+    snapshot = await tx.get(query);
+  } else {
+    snapshot = await query.get();
+  }
+
+  if (snapshot.empty) {
+    return 0;
+  }
+
+  const docs = snapshot.docs.map((doc) => doc.data());
+  docs.sort((a, b) => {
+    const aTime = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+    const bTime = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+    return bTime - aTime;
   });
-  return latest?.balanceAfter ?? 0;
+
+  return docs[0].balanceAfter ?? 0;
 }
 
 /**
  * Returns true if the user has a credit balance strictly greater than zero.
- *
- * This is the guard used before enqueueing any generation job.
- * Satisfies Requirements 2.4 and 3.4: zero-credit users are always blocked.
- *
- * @param userId  The user to check.
- * @param tx      Optional transaction client.
  */
-export async function hasSufficientCredits(
-  userId: string,
-  tx?: Prisma.TransactionClient
-): Promise<boolean> {
+export async function hasSufficientCredits(userId: string, tx?: Transaction): Promise<boolean> {
   const balance = await getCreditBalance(userId, tx);
   return balance > 0;
 }
 
 /**
  * Inserts a DEDUCTION ledger entry and returns the new entry.
- *
- * `balanceAfter` = currentBalance − amount.
- * Negative balances are not prevented at this layer; callers must call
- * `hasSufficientCredits` first.
- *
- * @param userId  The user being charged.
- * @param amount  Positive integer number of credits to deduct.
- * @param jobId   The GenerationJob ID that triggered the deduction.
- * @param tx      Optional transaction client.
  */
 export async function deductCredits(
   userId: string,
   amount: number,
   jobId: string,
-  tx?: Prisma.TransactionClient
+  tx?: Transaction,
 ): Promise<CreditLedgerEntry> {
-  const c = client(tx);
   const currentBalance = await getCreditBalance(userId, tx);
   const balanceAfter = currentBalance - amount;
 
-  return c.creditLedger.create({
-    data: {
-      userId,
-      eventType: CreditEventType.DEDUCTION,
-      amount,
-      balanceAfter,
-      generationJobId: jobId,
-    },
-  });
+  const docRef = db.collection("creditLedgers").doc();
+  const data = {
+    id: docRef.id,
+    userId,
+    eventType: CreditEventType.DEDUCTION,
+    amount,
+    balanceAfter,
+    generationJobId: jobId,
+    stripePaymentId: null,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  if (tx) {
+    tx.set(docRef, data);
+  } else {
+    await docRef.set(data);
+  }
+
+  return { ...data, createdAt: new Date() } as CreditLedgerEntry;
 }
 
 /**
  * Inserts a REFUND ledger entry and returns the new entry.
- *
- * Used when a generation job fails to restore the credits previously deducted.
- * `balanceAfter` = currentBalance + amount.
- *
- * @param userId  The user being refunded.
- * @param amount  Positive integer number of credits to restore.
- * @param jobId   The GenerationJob ID that triggered the refund.
- * @param tx      Optional transaction client.
  */
 export async function refundCredits(
   userId: string,
   amount: number,
   jobId: string,
-  tx?: Prisma.TransactionClient
+  tx?: Transaction,
 ): Promise<CreditLedgerEntry> {
-  const c = client(tx);
   const currentBalance = await getCreditBalance(userId, tx);
   const balanceAfter = currentBalance + amount;
 
-  return c.creditLedger.create({
-    data: {
-      userId,
-      eventType: CreditEventType.REFUND,
-      amount,
-      balanceAfter,
-      generationJobId: jobId,
-    },
-  });
+  const docRef = db.collection("creditLedgers").doc();
+  const data = {
+    id: docRef.id,
+    userId,
+    eventType: CreditEventType.REFUND,
+    amount,
+    balanceAfter,
+    generationJobId: jobId,
+    stripePaymentId: null,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  if (tx) {
+    tx.set(docRef, data);
+  } else {
+    await docRef.set(data);
+  }
+
+  return { ...data, createdAt: new Date() } as CreditLedgerEntry;
 }
 
 /**
  * Inserts a MONTHLY_GRANT ledger entry and returns the new entry.
- *
- * Called at the start of each billing cycle (Stripe webhook: invoice.payment_succeeded
- * or customer.subscription.updated) to credit the tier's monthly allowance.
- * `balanceAfter` = currentBalance + amount.
- *
- * @param userId  The user receiving the monthly grant.
- * @param amount  Number of credits to grant (from TIER_CONFIG).
- * @param tx      Optional transaction client.
  */
 export async function grantMonthlyCredits(
   userId: string,
   amount: number,
-  tx?: Prisma.TransactionClient
+  tx?: Transaction,
 ): Promise<CreditLedgerEntry> {
-  const c = client(tx);
   const currentBalance = await getCreditBalance(userId, tx);
   const balanceAfter = currentBalance + amount;
 
-  return c.creditLedger.create({
-    data: {
-      userId,
-      eventType: CreditEventType.MONTHLY_GRANT,
-      amount,
-      balanceAfter,
-    },
-  });
+  const docRef = db.collection("creditLedgers").doc();
+  const data = {
+    id: docRef.id,
+    userId,
+    eventType: CreditEventType.MONTHLY_GRANT,
+    amount,
+    balanceAfter,
+    generationJobId: null,
+    stripePaymentId: null,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+
+  if (tx) {
+    tx.set(docRef, data);
+  } else {
+    await docRef.set(data);
+  }
+
+  return { ...data, createdAt: new Date() } as CreditLedgerEntry;
 }
