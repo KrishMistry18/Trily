@@ -2,6 +2,8 @@
 
 import React, { useEffect, useRef, useState } from "react";
 
+import Image from "next/image";
+
 import { TESTIMONIALS_PLACEHOLDER } from "@/config/testimonials";
 
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -108,9 +110,11 @@ export function TestimonialCarousel() {
               <p className="text-white/80 mb-8 italic flex-1 text-lg">&quot;{t.quote}&quot;</p>
 
               <div className="flex items-center gap-4 mt-auto">
-                <img
+                <Image
                   src={t.avatar}
                   alt={t.name}
+                  width={48}
+                  height={48}
                   className="w-12 h-12 rounded-full bg-white/10 p-1"
                 />
                 <div className="flex-1">

@@ -4,19 +4,27 @@ import React, { useEffect, useState } from "react";
 
 export function HeroParallax() {
   const [tilt, setTilt] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
-      // Calculate scroll progress (0 at top, max 20 degrees at 500px scroll)
-      const scrollY = window.scrollY;
-      const maxTilt = 15; // degrees
-      const progress = Math.min(scrollY / 600, 1); // 0 to 1
+    // Mount the iframe after a slight delay to prioritize main thread for hero text paint
+    const timer = setTimeout(() => setIsMounted(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
 
-      // We start slightly tilted back (-5deg) and tilt forward as we scroll down (+15deg)
-      // Actually, a nice effect is starting flat (0) and tilting up/back as it goes up the screen
-      // Let's do: Start tilted slightly forward, then flattens out as you scroll down
-      const currentTilt = 20 - progress * 20;
-      setTilt(currentTilt);
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollY = window.scrollY;
+          const progress = Math.min(scrollY / 600, 1);
+          const currentTilt = 20 - progress * 20;
+          setTilt(currentTilt);
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
 
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -53,37 +61,44 @@ export function HeroParallax() {
         </div>
 
         {/* Iframe Placeholder */}
-        <div className="flex-1 bg-white relative">
-          <iframe
-            srcDoc="
-              <html>
-                <head>
-                  <style>
-                    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fafafa; color: #111; display: flex; flex-direction: column; align-items: center; }
-                    .hero { width: 100%; padding: 120px 20px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); text-align: center; }
-                    h1 { font-size: 3rem; margin-bottom: 1rem; letter-spacing: -0.02em; }
-                    p { font-size: 1.25rem; color: #4b5563; max-w: 600px; margin: 0 auto 2rem auto; }
-                    .btn { background: #16a34a; color: white; padding: 12px 24px; border-radius: 999px; text-decoration: none; font-weight: 500; }
-                    .nav { width: 100%; padding: 20px; display: flex; justify-content: space-between; align-items: center; background: white; border-bottom: 1px solid #eee; box-sizing: border-box;}
-                    .nav-logo { font-weight: bold; font-size: 1.5rem; }
-                  </style>
-                </head>
-                <body>
-                  <div class='nav'>
-                    <div class='nav-logo'>Matcha Magic</div>
-                    <div>Shop</div>
-                  </div>
-                  <div class='hero'>
-                    <h1>Premium Grade Ceremonial Matcha</h1>
-                    <p>Sourced directly from Uji, Japan. Elevate your morning ritual.</p>
-                    <a href='#' class='btn'>Shop Now</a>
-                  </div>
-                </body>
-              </html>
-            "
-            className="w-full h-full border-0 pointer-events-none"
-            sandbox="allow-scripts"
-          />
+        <div className="flex-1 relative overflow-hidden bg-white">
+          {/* Loading shimmer */}
+          <div className="absolute inset-0 bg-slate-100 animate-pulse z-0" />
+
+          {isMounted && (
+            <div className="absolute inset-0 w-[150%] h-[150%] origin-top-left scale-[0.666666] z-10">
+              <iframe
+                srcDoc="
+                  <html>
+                    <head>
+                      <style>
+                        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #fafafa; color: #111; display: flex; flex-direction: column; align-items: center; overflow-x: hidden; }
+                        .hero { width: 100%; padding: 120px 20px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); text-align: center; }
+                        h1 { font-size: 3rem; margin-bottom: 1rem; letter-spacing: -0.02em; }
+                        p { font-size: 1.25rem; color: #4b5563; max-w: 600px; margin: 0 auto 2rem auto; }
+                        .btn { background: #16a34a; color: white; padding: 12px 24px; border-radius: 999px; text-decoration: none; font-weight: 500; }
+                        .nav { width: 100%; padding: 20px; display: flex; justify-content: space-between; align-items: center; background: white; border-bottom: 1px solid #eee; box-sizing: border-box;}
+                        .nav-logo { font-weight: bold; font-size: 1.5rem; }
+                      </style>
+                    </head>
+                    <body>
+                      <div class='nav'>
+                        <div class='nav-logo'>Matcha Magic</div>
+                        <div>Shop</div>
+                      </div>
+                      <div class='hero'>
+                        <h1>Premium Grade Ceremonial Matcha</h1>
+                        <p>Sourced directly from Uji, Japan. Elevate your morning ritual.</p>
+                        <a href='#' class='btn'>Shop Now</a>
+                      </div>
+                    </body>
+                  </html>
+                "
+                className="w-full h-full border-0 bg-transparent"
+                sandbox="allow-scripts"
+              />
+            </div>
+          )}
         </div>
 
         {/* Ambient Glow behind the browser */}

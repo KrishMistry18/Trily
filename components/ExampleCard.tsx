@@ -17,9 +17,11 @@ export function ExampleCard({ example }: { example: OfficialExample }) {
 
         {/* Iframe wrapper for scaling */}
         <div className="absolute inset-0 w-[400%] h-[400%] origin-top-left scale-[0.25] transition-transform duration-700 ease-out group-hover:scale-[0.26]">
+          {/* Loading shimmer */}
+          <div className="absolute inset-0 bg-slate-100 animate-pulse z-0" />
           <iframe
             srcDoc={example.generatedCode}
-            className="w-full h-full border-0 pointer-events-none"
+            className="w-full h-full border-0 pointer-events-none bg-transparent relative z-10"
             tabIndex={-1}
             sandbox="allow-scripts"
           />

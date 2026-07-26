@@ -31,20 +31,19 @@ export default function VersionHistory({
   const [isRestoring, setIsRestoring] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  async function fetchVersions() {
-    setIsLoading(true);
-    try {
-      const data = await getProjectVersionsHistoryAction(projectId);
-      setVersions(data);
-    } catch (error) {
-      console.error("Failed to fetch history:", error);
-      toast.error("Failed to fetch version history");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
   useEffect(() => {
+    async function fetchVersions() {
+      setIsLoading(true);
+      try {
+        const data = await getProjectVersionsHistoryAction(projectId);
+        setVersions(data);
+      } catch (error) {
+        console.error("Failed to fetch history:", error);
+        toast.error("Failed to fetch version history");
+      } finally {
+        setIsLoading(false);
+      }
+    }
     fetchVersions();
   }, [projectId, activeVersionId]);
 

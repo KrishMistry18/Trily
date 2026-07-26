@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import Image from "next/image";
 import Link from "next/link";
 
 import {
@@ -90,11 +91,12 @@ export default function ProjectCard({ project, onRefresh }: ProjectCardProps) {
         className="block h-[180px] relative overflow-hidden flex-shrink-0 rounded-t-2xl border-b border-white/5"
       >
         {project.thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={project.thumbnailUrl}
             alt={project.name}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover transition-transform duration-700 group-hover:scale-105"
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/20 to-fuchsia-500/20 flex items-center justify-center">

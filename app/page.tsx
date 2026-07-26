@@ -1,3 +1,4 @@
+import dynamic from "next/dynamic";
 import Link from "next/link";
 
 import { getOfficialExamples } from "@/app/actions/examples";
@@ -5,14 +6,49 @@ import { auth } from "@/auth";
 
 import { EDIT_COST, FULL_GENERATION_COST, SUBSCRIPTION_TIERS } from "@/lib/billing/config";
 
-import { ExampleCard } from "@/components/ExampleCard";
-import { HeroParallax } from "@/components/HeroParallax";
-import { HowItWorksPipeline } from "@/components/HowItWorksPipeline";
-import { LandingNav } from "@/components/LandingNav";
-import { PricingSection } from "@/components/PricingSection";
-import { TestimonialCarousel } from "@/components/TestimonialCarousel";
 import { Button } from "@/components/ui/Button";
 import { FadeIn } from "@/components/ui/FadeIn";
+import { Skeleton } from "@/components/ui/Skeleton";
+
+const ExampleCard = dynamic(
+  () => import("@/components/ExampleCard").then((mod) => mod.ExampleCard),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-64 w-full rounded-2xl" />,
+  },
+);
+const HeroParallax = dynamic(
+  () => import("@/components/HeroParallax").then((mod) => mod.HeroParallax),
+  { ssr: true },
+);
+const HowItWorksPipeline = dynamic(
+  () => import("@/components/HowItWorksPipeline").then((mod) => mod.HowItWorksPipeline),
+  {
+    ssr: true,
+    loading: () => <Skeleton className="h-96 w-full rounded-2xl max-w-4xl mx-auto my-24" />,
+  },
+);
+const LandingNav = dynamic(() => import("@/components/LandingNav").then((mod) => mod.LandingNav), {
+  ssr: true,
+});
+const PricingSection = dynamic(
+  () => import("@/components/PricingSection").then((mod) => mod.PricingSection),
+  {
+    ssr: true,
+    loading: () => (
+      <div className="py-24 max-w-6xl mx-auto">
+        <Skeleton className="h-[600px] w-full rounded-2xl" />
+      </div>
+    ),
+  },
+);
+const TestimonialCarousel = dynamic(
+  () => import("@/components/TestimonialCarousel").then((mod) => mod.TestimonialCarousel),
+  {
+    ssr: true,
+    loading: () => <Skeleton className="h-48 w-full max-w-4xl mx-auto rounded-2xl" />,
+  },
+);
 
 export default async function LandingPage() {
   const session = await auth();

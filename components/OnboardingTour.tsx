@@ -9,7 +9,10 @@ import { markOnboardingSeenAction } from "@/app/actions/user";
 import { TourErrorBoundary } from "./TourErrorBoundary";
 
 // Dynamically import Joyride so it doesn't break SSR
-const Joyride = dynamic(() => import("react-joyride").then((mod) => mod.Joyride), { ssr: false });
+// @ts-ignore
+const Joyride = dynamic(() => import("react-joyride").then((mod: any) => mod.default || mod), {
+  ssr: false,
+}) as any;
 
 export function OnboardingTour() {
   const [run, setRun] = useState(false);
@@ -62,12 +65,14 @@ export function OnboardingTour() {
         showSkipButton={true}
         showProgress={true}
         callback={handleJoyrideCallback}
-        styles={{
-          options: {
-            primaryColor: "#000",
-            zIndex: 10000,
-          },
-        }}
+        styles={
+          {
+            options: {
+              primaryColor: "#000",
+              zIndex: 10000,
+            },
+          } as any
+        }
       />
     </TourErrorBoundary>
   );

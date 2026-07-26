@@ -2,7 +2,7 @@
 
 import React from "react";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { Variants, motion, useReducedMotion } from "framer-motion";
 
 const STEPS = [
   {
@@ -91,7 +91,7 @@ const STEPS = [
 export function HowItWorksPipeline() {
   const shouldReduceMotion = useReducedMotion();
 
-  const containerVariants = {
+  const containerVariants: Variants = {
     hidden: {},
     visible: {
       transition: {
@@ -100,7 +100,7 @@ export function HowItWorksPipeline() {
     },
   };
 
-  const itemVariants = {
+  const itemVariants: Variants = {
     hidden: {
       opacity: shouldReduceMotion ? 1 : 0,
       y: shouldReduceMotion ? 0 : 20,

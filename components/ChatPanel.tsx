@@ -6,7 +6,6 @@
  * Chat interface for iterative editing via natural-language prompts.
  * Requirements: 8.1, 8.2, 8.4, 8.5, 8.6, 19.1
  */
-
 import { useEffect, useRef, useState } from "react";
 
 interface ChatMessage {
@@ -24,16 +23,20 @@ interface ChatPanelProps {
   onNewVersion?: (versionId: string) => void;
 }
 
-const STATUS_BADGE: Record<string, { label: string; className: string }> = {
+const STATUS_BADGE = {
   PENDING: { label: "Pending", className: "bg-accent/20 text-accent" },
-  APPLIED:  { label: "Applied", className: "bg-green-100 text-green-700" },
-  FAILED:   { label: "Failed",  className: "bg-red-100 text-red-600"   },
-};
+  APPLIED: { label: "Applied", className: "bg-green-100 text-green-700" },
+  FAILED: { label: "Failed", className: "bg-red-100 text-red-600" },
+} as const;
 
 const MIN_LEN = 5;
 const MAX_LEN = 1000;
 
-export default function ChatPanel({ projectId, isJobInProgress = false, onNewVersion }: ChatPanelProps) {
+export default function ChatPanel({
+  projectId,
+  isJobInProgress = false,
+  onNewVersion,
+}: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [prompt, setPrompt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -85,8 +88,8 @@ export default function ChatPanel({ projectId, isJobInProgress = false, onNewVer
           prev.map((m) =>
             m.id === optimisticId
               ? { ...m, status: "FAILED", errorMessage: data.error ?? "Request failed" }
-              : m
-          )
+              : m,
+          ),
         );
         return;
       }
@@ -96,11 +99,15 @@ export default function ChatPanel({ projectId, isJobInProgress = false, onNewVer
       // Subscribe to SSE for this job
       const es = new EventSource(`/api/jobs/${jobId}/status`);
       es.onmessage = (event: MessageEvent) => {
-        const payload = JSON.parse(event.data as string) as { status: string; versionId?: string; error?: string };
+        const payload = JSON.parse(event.data as string) as {
+          status: string;
+          versionId?: string;
+          error?: string;
+        };
 
         if (payload.status === "completed") {
           setMessages((prev) =>
-            prev.map((m) => (m.id === optimisticId ? { ...m, status: "APPLIED" } : m))
+            prev.map((m) => (m.id === optimisticId ? { ...m, status: "APPLIED" } : m)),
           );
           if (payload.versionId && onNewVersion) onNewVersion(payload.versionId);
           es.close();
@@ -109,8 +116,8 @@ export default function ChatPanel({ projectId, isJobInProgress = false, onNewVer
             prev.map((m) =>
               m.id === optimisticId
                 ? { ...m, status: "FAILED", errorMessage: payload.error ?? "Generation failed" }
-                : m
-            )
+                : m,
+            ),
           );
           es.close();
         }
@@ -118,8 +125,8 @@ export default function ChatPanel({ projectId, isJobInProgress = false, onNewVer
       es.onerror = () => {
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === optimisticId ? { ...m, status: "FAILED", errorMessage: "Connection lost" } : m
-          )
+            m.id === optimisticId ? { ...m, status: "FAILED", errorMessage: "Connection lost" } : m,
+          ),
         );
         es.close();
       };
@@ -143,11 +150,16 @@ export default function ChatPanel({ projectId, isJobInProgress = false, onNewVer
             <div key={msg.id} className="rounded-lg bg-foreground/5 p-3 space-y-1.5">
               <p className="text-sm text-foreground">{msg.prompt}</p>
               <div className="flex items-center justify-between">
-                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
+                <span
+                  className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}
+                >
                   {badge.label}
                 </span>
                 <span className="text-xs text-foreground/40">
-                  {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  {new Date(msg.createdAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </span>
               </div>
               {msg.status === "FAILED" && msg.errorMessage && (

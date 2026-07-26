@@ -65,7 +65,7 @@ export default function PublishDialog({ projectId, isOpen, onClose }: PublishDia
     try {
       const res = await updateCustomDomainAction(projectId, customDomain);
       if (res.success) {
-        setCustomDomain(res.cleanedDomain);
+        setCustomDomain(res.cleanedDomain ?? "");
         alert("Domain updated successfully");
       } else if (res.error === "upgrade_required") {
         alert("Custom domains require a Pro or Business subscription.");

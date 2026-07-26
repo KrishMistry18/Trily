@@ -68,7 +68,7 @@ export default function PromptInput() {
     if (initialPrompt && initialPrompt !== prompt) {
       setPrompt(initialPrompt);
     }
-  }, [initialPrompt]);
+  }, [initialPrompt, prompt]);
   const [balance, setBalance] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
