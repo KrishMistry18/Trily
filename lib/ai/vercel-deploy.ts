@@ -9,18 +9,17 @@
  *
  * Requirements: 11.1, 11.5
  */
-
 import type { CodeFiles } from "@/lib/storage";
 
 export interface VercelDeploymentFile {
-  file: string;   // relative path within the deployment
-  data: string;   // file content (UTF-8 string)
+  file: string; // relative path within the deployment
+  data: string; // file content (UTF-8 string)
 }
 
 export interface DeployToVercelParams {
-  projectName: string;  // used as the Vercel project name
+  projectName: string; // used as the Vercel project name
   files: CodeFiles;
-  versionId: string;    // used for unique deployment naming
+  versionId: string; // used for unique deployment naming
 }
 
 export interface DeployToVercelResult {
@@ -33,14 +32,14 @@ export interface DeployToVercelResult {
  * Throws an error (which the caller should catch and convert to 502) if the
  * Vercel API call fails.
  *
- * @param projectName  Human-readable project name (e.g., "orbis-proj_xxx")
+ * @param projectName  Human-readable project name (e.g., "trily-proj_xxx")
  * @param files        CodeFiles containing index.html
  * @param versionId    Version ID — appended to deployment name for uniqueness
  */
 export async function deployToVercel(
   projectName: string,
   files: CodeFiles,
-  versionId: string
+  versionId: string,
 ): Promise<DeployToVercelResult> {
   const token = process.env.VERCEL_API_TOKEN;
   if (!token) {
@@ -58,7 +57,7 @@ export async function deployToVercel(
       },
     ],
     projectSettings: {
-      framework: null,  // static deployment
+      framework: null, // static deployment
     },
     target: "production",
   };
@@ -74,17 +73,12 @@ export async function deployToVercel(
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => "unknown error");
-    throw new Error(
-      `Vercel API returned ${response.status}: ${errorText}`
-    );
+    throw new Error(`Vercel API returned ${response.status}: ${errorText}`);
   }
 
   const data = (await response.json()) as { url?: string; alias?: string[] };
 
-  const deployUrl =
-    data.alias?.[0]
-      ? `https://${data.alias[0]}`
-      : `https://${data.url}`;
+  const deployUrl = data.alias?.[0] ? `https://${data.alias[0]}` : `https://${data.url}`;
 
   if (!deployUrl || deployUrl === "https://undefined") {
     throw new Error("Vercel API did not return a deployment URL");

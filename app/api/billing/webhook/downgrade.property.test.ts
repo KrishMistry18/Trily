@@ -8,7 +8,7 @@
  *
  * Strategy:
  *   Requirement 2.7 states:
- *     "WHEN a Subscription is downgraded or cancelled, THE Orbis SHALL retain
+ *     "WHEN a Subscription is downgraded or cancelled, THE Trily SHALL retain
  *      all existing Projects and Versions but apply the new Tier's Credit
  *      allowance from the next billing cycle."
  *
@@ -29,7 +29,6 @@
  * Note: We test the pure downgrade function extracted from the handler,
  * not a live database.
  */
-
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 
@@ -76,9 +75,7 @@ interface AppState {
 function applyDowngrade(state: AppState, userId: string, newTier: Tier): AppState {
   return {
     // Only the user's tier changes
-    users: state.users.map((u) =>
-      u.id === userId ? { ...u, tier: newTier } : u
-    ),
+    users: state.users.map((u) => (u.id === userId ? { ...u, tier: newTier } : u)),
     // Projects are completely unchanged
     projects: state.projects,
     // Versions are completely unchanged
@@ -107,20 +104,14 @@ const downgradePairArb = fc.oneof(
   // Business → Free
   fc.constant({ from: "BUSINESS" as Tier, to: "FREE" as Tier }),
   // Pro → Free
-  fc.constant({ from: "PRO" as Tier, to: "FREE" as Tier })
+  fc.constant({ from: "PRO" as Tier, to: "FREE" as Tier }),
 );
 
-const userIdArb = fc
-  .hexaString({ minLength: 8, maxLength: 16 })
-  .map((s) => `user_${s}`);
+const userIdArb = fc.hexaString({ minLength: 8, maxLength: 16 }).map((s) => `user_${s}`);
 
-const projectIdArb = fc
-  .hexaString({ minLength: 8, maxLength: 16 })
-  .map((s) => `proj_${s}`);
+const projectIdArb = fc.hexaString({ minLength: 8, maxLength: 16 }).map((s) => `proj_${s}`);
 
-const versionIdArb = fc
-  .hexaString({ minLength: 8, maxLength: 16 })
-  .map((s) => `ver_${s}`);
+const versionIdArb = fc.hexaString({ minLength: 8, maxLength: 16 }).map((s) => `ver_${s}`);
 
 /**
  * Generates an AppState with 1 user and 0-10 projects, each with 0-5 versions.
@@ -129,7 +120,7 @@ const appStateArb = fc
   .tuple(
     userIdArb,
     downgradePairArb,
-    fc.integer({ min: 0, max: 10 }) // number of projects
+    fc.integer({ min: 0, max: 10 }), // number of projects
   )
   .chain(([userId, tierPair, projectCount]) => {
     // Generate `projectCount` unique project IDs
@@ -138,22 +129,20 @@ const appStateArb = fc
       .chain((projectIds) => {
         // For each project, generate 0-5 version IDs
         const versionGenerators = projectIds.map((pid) =>
-          fc
-            .integer({ min: 0, max: 5 })
-            .chain((vCount) =>
-              fc
-                .uniqueArray(versionIdArb, {
-                  minLength: vCount,
-                  maxLength: vCount,
-                })
-                .map((vIds) =>
-                  vIds.map((vid, idx) => ({
-                    id: vid,
-                    projectId: pid,
-                    versionNumber: idx + 1,
-                  }))
-                )
-            )
+          fc.integer({ min: 0, max: 5 }).chain((vCount) =>
+            fc
+              .uniqueArray(versionIdArb, {
+                minLength: vCount,
+                maxLength: vCount,
+              })
+              .map((vIds) =>
+                vIds.map((vid, idx) => ({
+                  id: vid,
+                  projectId: pid,
+                  versionNumber: idx + 1,
+                })),
+              ),
+          ),
         );
 
         return fc
@@ -198,7 +187,7 @@ describe("Property 5 — Subscription downgrade preserves all projects and versi
           expect(projectIdsAfter.has(id)).toBe(true);
         });
       }),
-      { numRuns: 300 }
+      { numRuns: 300 },
     );
   });
 
@@ -221,7 +210,7 @@ describe("Property 5 — Subscription downgrade preserves all projects and versi
           expect(versionIdsAfter.has(id)).toBe(true);
         });
       }),
-      { numRuns: 300 }
+      { numRuns: 300 },
     );
   });
 
@@ -245,7 +234,7 @@ describe("Property 5 — Subscription downgrade preserves all projects and versi
         expect(userAfter.id).toBe(userBefore.id);
         expect(userAfter.email).toBe(userBefore.email);
       }),
-      { numRuns: 300 }
+      { numRuns: 300 },
     );
   });
 
@@ -259,7 +248,7 @@ describe("Property 5 — Subscription downgrade preserves all projects and versi
       fc.property(appStateArb, ({ userId: _uid, tierPair }) => {
         expect(isDowngrade(tierPair.from, tierPair.to)).toBe(true);
       }),
-      { numRuns: 300 }
+      { numRuns: 300 },
     );
   });
 
@@ -279,7 +268,7 @@ describe("Property 5 — Subscription downgrade preserves all projects and versi
           state.versions.map((v) => [
             v.id,
             { projectId: v.projectId, versionNumber: v.versionNumber },
-          ])
+          ]),
         );
 
         for (const v of after.versions) {
@@ -289,7 +278,7 @@ describe("Property 5 — Subscription downgrade preserves all projects and versi
           expect(v.versionNumber).toBe(original!.versionNumber);
         }
       }),
-      { numRuns: 300 }
+      { numRuns: 300 },
     );
   });
 
@@ -304,15 +293,13 @@ describe("Property 5 — Subscription downgrade preserves all projects and versi
       fc.property(appStateArb, ({ state, userId, tierPair }) => {
         const after = applyDowngrade(state, userId, tierPair.to);
 
-        const before = new Map(
-          state.projects.map((p) => [p.id, p.userId])
-        );
+        const before = new Map(state.projects.map((p) => [p.id, p.userId]));
 
         for (const p of after.projects) {
           expect(p.userId).toBe(before.get(p.id));
         }
       }),
-      { numRuns: 300 }
+      { numRuns: 300 },
     );
   });
 

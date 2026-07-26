@@ -1,7 +1,7 @@
 /**
  * types/index.ts
  *
- * Shared TypeScript types and interfaces for the Orbis platform.
+ * Shared TypeScript types and interfaces for the Trily platform.
  * More specific types live in sub-modules (e.g., types/api.ts, types/db.ts).
  */
 

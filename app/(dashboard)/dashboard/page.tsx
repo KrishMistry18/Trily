@@ -69,7 +69,7 @@ function EmptyState() {
 
       <h2 className="mb-2 text-xl font-semibold text-foreground">No projects yet</h2>
       <p className="mb-8 max-w-sm text-sm text-foreground/60">
-        Describe your website in plain language and let Orbis generate it for you in seconds.
+        Describe your website in plain language and let Trily generate it for you in seconds.
       </p>
 
       {/* CTA */}

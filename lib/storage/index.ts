@@ -2,7 +2,7 @@
  * lib/storage/index.ts
  *
  * StorageService — thin wrapper around Firebase Storage that implements all
- * object-storage operations required by Orbis.
+ * object-storage operations required by Trily.
  *
  * Path conventions (mirrors design.md §Storage Layout):
  *   Version code : {userId}/{projectId}/{versionId}/index.html

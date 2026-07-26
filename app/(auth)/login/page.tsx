@@ -133,7 +133,7 @@ function LoginForm() {
       {/* Header */}
       <div className="text-center space-y-1">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Welcome back</h1>
-        <p className="text-sm text-foreground/60">Sign in to your Orbis account</p>
+        <p className="text-sm text-foreground/60">Sign in to your Trily account</p>
       </div>
 
       {/* Auth-level error (information-safe, Req 1.6) */}

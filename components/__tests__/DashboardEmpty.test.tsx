@@ -2,7 +2,6 @@
  * Task 25.1 — Unit test: empty state is displayed when user has no projects
  * Validates: Requirements 12.3
  */
-
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -18,7 +17,7 @@ function EmptyState() {
   return (
     <div data-testid="empty-state">
       <h2>No projects yet</h2>
-      <p>Describe your website in plain language and let Orbis generate it for you in seconds.</p>
+      <p>Describe your website in plain language and let Trily generate it for you in seconds.</p>
       <a href="/dashboard/new" data-testid="create-first-site-cta">
         Create your first site
       </a>
@@ -55,8 +54,6 @@ describe("Task 25.1 — Dashboard empty state", () => {
 
   it("description text is visible in the empty state", () => {
     render(<DashboardWithProjects projects={[]} />);
-    expect(
-      screen.getByText(/describe your website/i)
-    ).toBeDefined();
+    expect(screen.getByText(/describe your website/i)).toBeDefined();
   });
 });

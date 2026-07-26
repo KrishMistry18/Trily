@@ -4,7 +4,6 @@
  * Unit tests for environment variable validation (lib/env.ts).
  * Tests verify that the Zod schema correctly validates required env vars.
  */
-
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -39,13 +38,13 @@ const envSchema = z.object({
 });
 
 const validEnv = {
-  DATABASE_URL: "postgresql://user:pass@localhost:5432/orbis",
+  DATABASE_URL: "postgresql://user:pass@localhost:5432/trily",
   NEXTAUTH_URL: "http://localhost:3000",
   NEXTAUTH_SECRET: "a".repeat(32),
   AI_PROVIDER: "anthropic" as const,
   AI_API_KEY: "sk-ant-test-key",
   S3_REGION: "auto",
-  S3_BUCKET_NAME: "orbis-assets",
+  S3_BUCKET_NAME: "trily-assets",
   S3_ACCESS_KEY_ID: "access-key",
   S3_SECRET_ACCESS_KEY: "secret-key",
   REDIS_URL: "redis://localhost:6379",

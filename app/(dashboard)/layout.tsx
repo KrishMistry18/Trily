@@ -45,7 +45,7 @@ async function DashboardNav({ userName, userId }: { userName: string; userId: st
           className="flex items-center gap-2 font-bold text-foreground text-xl"
         >
           <span className="text-primary text-2xl">◉</span>
-          Orbis
+          Trily
         </Link>
 
         {/* Right side — credit balance + user menu */}

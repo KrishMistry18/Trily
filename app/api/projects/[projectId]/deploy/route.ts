@@ -11,17 +11,15 @@
  *
  * Requirements: 11.1, 11.2, 11.3, 11.4, 11.5
  */
-
-import { auth } from "@/auth";
-import { db } from "@/lib/db";
-import { deployToVercel } from "@/lib/ai/vercel-deploy";
-import { storageService } from "@/lib/storage";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: { projectId: string } }
-) {
+import { auth } from "@/auth";
+
+import { deployToVercel } from "@/lib/ai/vercel-deploy";
+import { db } from "@/lib/db";
+import { storageService } from "@/lib/storage";
+
+export async function POST(_req: NextRequest, { params }: { params: { projectId: string } }) {
   // 1. Authenticate
   const session = await auth();
   if (!session?.user?.id) {
@@ -52,22 +50,15 @@ export async function POST(
   });
 
   if (!latestVersion) {
-    return NextResponse.json(
-      { error: "No versions found for this project" },
-      { status: 404 }
-    );
+    return NextResponse.json({ error: "No versions found for this project" }, { status: 404 });
   }
 
   // 4. Fetch HTML from S3
-  const codeFiles = await storageService.readVersionFiles(
-    userId,
-    projectId,
-    latestVersion.id
-  );
+  const codeFiles = await storageService.readVersionFiles(userId, projectId, latestVersion.id);
 
   // 5. Deploy to Vercel (Req 11.1)
   try {
-    const projectName = `orbis-${projectId}`;
+    const projectName = `trily-${projectId}`;
     const { deployUrl } = await deployToVercel(projectName, codeFiles, latestVersion.id);
 
     // 6. On success: UPDATE Version.deployUrl (Req 11.2)
@@ -80,11 +71,7 @@ export async function POST(
     return NextResponse.json({ deployUrl, versionId: latestVersion.id });
   } catch (err) {
     // 7. On error: return 502 and do NOT modify the Version record (Req 11.3)
-    const message =
-      err instanceof Error ? err.message : "Vercel deployment failed";
-    return NextResponse.json(
-      { error: message },
-      { status: 502 }
-    );
+    const message = err instanceof Error ? err.message : "Vercel deployment failed";
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }
