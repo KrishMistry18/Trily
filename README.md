@@ -14,15 +14,6 @@ A single marketplace for interactive, motion-driven, and 3D-capable website comp
 - **Your own catalog**: Original templates, components, and “build prompts” (structured AI prompts + reference code) that you design and build yourself, combining free/open-source libraries under your own custom design system so the end result looks and feels like one unified product.
 - **Creator marketplace**: A peer-to-peer layer where other developers and designers can list, sell, and buy templates and components from each other, with you taking a revenue share on each transaction.
 
-### Core value proposition
-
-The underlying libraries are mostly free — so the business does not sell access to the libraries themselves. It sells:
-
-- **Curation** — saving buyers the time of discovering, evaluating, and combining scattered libraries.
-- **Integration** — pre-built combinations (e.g., a 3D landing page starter using a Rive cursor + an animated globe + scroll-triggered motion) that work together out of the box.
-- **Original design** — your own visual language applied consistently across the catalog, not a repackaging of any single library's demo look.
-- **A live marketplace** — network effects from creators selling to each other, which no single component library offers on its own.
-
 ## 2. Site Structure
 
 - **Browse & Discovery**: Categories by effect type (3D, cursors, scroll animation, data viz, globes/beams) and by source technique, live interactive previews (not static screenshots), search and filtering by framework/price/license.
