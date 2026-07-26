@@ -15,9 +15,9 @@
  *
  * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 19.1
  */
-
-import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+
+import { useRouter, useSearchParams } from "next/navigation";
 
 // ---------------------------------------------------------------------------
 // Presets
@@ -58,9 +58,17 @@ const PROMPT_MAX = 2000;
 // ---------------------------------------------------------------------------
 export default function PromptInput() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialPrompt = searchParams.get("prompt") || "";
 
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(initialPrompt);
   const [selectedPreset, setSelectedPreset] = useState("");
+
+  useEffect(() => {
+    if (initialPrompt && initialPrompt !== prompt) {
+      setPrompt(initialPrompt);
+    }
+  }, [initialPrompt]);
   const [balance, setBalance] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +118,7 @@ export default function PromptInput() {
         const data = (await response.json()) as { error?: string };
         if (response.status === 402) {
           setError(
-            "You don't have enough credits. Please upgrade your plan or purchase more credits."
+            "You don't have enough credits. Please upgrade your plan or purchase more credits.",
           );
         } else {
           setError(data.error ?? "Failed to create project. Please try again.");
@@ -141,12 +149,8 @@ export default function PromptInput() {
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       {/* Preset picker */}
       <div className="space-y-1.5">
-        <label
-          htmlFor="preset"
-          className="block text-sm font-medium text-foreground"
-        >
-          Start from a template{" "}
-          <span className="text-foreground/40">(optional)</span>
+        <label htmlFor="preset" className="block text-sm font-medium text-foreground">
+          Start from a template <span className="text-foreground/40">(optional)</span>
         </label>
         <select
           id="preset"
@@ -165,10 +169,7 @@ export default function PromptInput() {
 
       {/* Prompt textarea */}
       <div className="space-y-1.5">
-        <label
-          htmlFor="prompt"
-          className="block text-sm font-medium text-foreground"
-        >
+        <label htmlFor="prompt" className="block text-sm font-medium text-foreground">
           Describe your website
         </label>
         <textarea
@@ -217,9 +218,7 @@ export default function PromptInput() {
           ) : (
             <p className="text-xs text-foreground/60">
               {balance} credits available
-              <span className="ml-1 text-foreground/40">
-                · 5 credits per generation
-              </span>
+              <span className="ml-1 text-foreground/40">· 5 credits per generation</span>
             </p>
           )}
         </div>

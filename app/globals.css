@@ -7,22 +7,12 @@
   --color-primary: #6366f1;
   --color-secondary: #8b5cf6;
   --color-accent: #f59e0b;
-  --color-background: #ffffff;
-  --color-foreground: #0f172a;
+  --color-background: #0a0a0f; /* Deep dark background */
+  --color-foreground: #ffffff; /* White text */
 
   /* Legacy aliases kept for backwards compat */
   --background: var(--color-background);
   --foreground: var(--color-foreground);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: #0f172a;
-    --color-foreground: #f8fafc;
-
-    --background: var(--color-background);
-    --foreground: var(--color-foreground);
-  }
 }
 
 body {
