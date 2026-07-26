@@ -151,7 +151,7 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
 - [x] 11. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 12. Spec Generator service
+- [x] 12. Spec Generator service
   - Create `lib/ai/spec-generator.ts`:
     - Define `SiteSpecSchema` (zod) with pageTitle, colorPalette (5 hex colours), sections array
     - Build system prompt instructing LLM to output only valid JSON conforming to schema
@@ -160,12 +160,12 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
     - Return parsed `SiteSpec` object
   - _Requirements: 4.1, 4.2, 4.5_
 
-  - [ ] 12.1 Write property test: spec generator always produces schema-conforming output (mocked LLM)
+  - [x] 12.1 Write property test: spec generator always produces schema-conforming output (mocked LLM)
     - **Property 8 related — schema invariant**
     - For any prompt, mocked valid LLM response must always parse to a valid SiteSpec
     - **Validates: Requirements 4.1, 4.2**
 
-- [ ] 13. Code Generator service
+- [x] 13. Code Generator service
   - Create `lib/ai/code-generator.ts`:
     - Build system prompt with SiteSpec input, instructing LLM to output single self-contained HTML5 file
     - Prompt must include mobile-responsive instruction (320px+) and HTML5 validity requirement
@@ -174,12 +174,12 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
     - Return `CodeFiles` object `{ html: string }`
   - _Requirements: 5.1, 5.2, 5.5_
 
-  - [ ] 13.1 Write property test: code generator LLM prompt always includes mobile-responsive instruction
+  - [x] 13.1 Write property test: code generator LLM prompt always includes mobile-responsive instruction
     - **Property related to Req 5.2**
     - For any SiteSpec, verify outgoing LLM call contains mobile-responsive + HTML5 instructions
     - **Validates: Requirements 5.2**
 
-- [ ] 14. Edit Code Generator service
+- [x] 14. Edit Code Generator service
   - Create `lib/ai/edit-generator.ts`:
     - Accept `currentHtml: string` and `editPrompt: string`
     - Build prompt that includes full current HTML and the edit instruction
@@ -187,11 +187,11 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
     - Return updated `CodeFiles`
   - _Requirements: 8.3_
 
-  - [ ] 14.1 Write property test: edit jobs always include current code in the LLM prompt
+  - [x] 14.1 Write property test: edit jobs always include current code in the LLM prompt
     - **Property 16: Edit jobs always include current code in the LLM prompt**
     - **Validates: Requirements 8.3**
 
-- [ ] 15. Image Generator service (stretch)
+- [x] 15. Image Generator service (stretch)
   - Create `lib/ai/image-generator.ts`:
     - Accept `SiteSpec` (use hero section copy + colorPalette to build image prompt)
     - Call Replicate or fal.ai API (selected by `IMAGE_PROVIDER` env variable)
@@ -200,11 +200,11 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
     - Log cost record via `logTokenUsage` (or equivalent cost log)
   - _Requirements: 18.1, 18.3, 18.4, 18.5_
 
-  - [ ] 15.1 Write property test: image generation credit cost is always deducted when opted in
+  - [x] 15.1 Write property test: image generation credit cost is always deducted when opted in
     - **Property 28: Image generation credit cost is always deducted when opted in**
     - **Validates: Requirements 18.2**
 
-- [ ] 16. BullMQ job queue infrastructure
+- [x] 16. BullMQ job queue infrastructure
   - Install `bullmq` and `ioredis`
   - Create `lib/queue/redis.ts`: ioredis client from `REDIS_URL` env
   - Create `lib/queue/generationQueue.ts`: export BullMQ `Queue` instance named `generation`
@@ -215,19 +215,19 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Create `worker.ts` entry point (separate Node process from Next.js)
   - _Requirements: 6.1, 6.2, 6.6_
 
-  - [ ] 16.1 Write property test: Generation job statuses are always from the valid set
+  - [x] 16.1 Write property test: Generation job statuses are always from the valid set
     - **Property 11: Generation job statuses are always drawn from the valid set**
     - **Validates: Requirements 6.2**
 
-  - [ ] 16.2 Write property test: credits are always restored on any generation job failure
+  - [x] 16.2 Write property test: credits are always restored on any generation job failure
     - **Property 9: Credits are always restored on any generation job failure**
     - **Validates: Requirements 4.4, 5.4, 6.6, 8.6, 18.4**
 
-  - [ ] 16.3 Write property test: timed-out jobs are marked failed and credits restored
+  - [x] 16.3 Write property test: timed-out jobs are marked failed and credits restored
     - **Property 12: Timed-out jobs are marked failed and credits restored**
     - **Validates: Requirements 6.6**
 
-- [ ] 17. SSE job status endpoint
+- [x] 17. SSE job status endpoint
   - Create `app/api/jobs/[jobId]/status/route.ts`:
     - Verify job belongs to authenticated user
     - If job already COMPLETED or FAILED, return current status immediately
@@ -236,7 +236,7 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
     - Close stream when job reaches terminal state or client disconnects
   - _Requirements: 6.3, 6.4, 6.5_
 
-- [ ] 18. Project creation API route
+- [x] 18. Project creation API route
   - Create `app/api/projects/route.ts` (POST):
     - Authenticate user, check rate limit (return 429 with retry-after on limit exceeded)
     - Validate prompt length [10, 2000] (return 400 on violation)
@@ -246,11 +246,11 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
     - Return `{ projectId, jobId, status: 'pending' }` within 2 seconds
   - _Requirements: 3.1, 3.3, 3.4, 3.5, 3.6, 6.1_
 
-  - [ ] 18.1 Write property test: prompt length validation is enforced consistently
+  - [x] 18.1 Write property test: prompt length validation is enforced consistently
     - **Property 7: Prompt length validation is enforced consistently**
     - **Validates: Requirements 3.5**
 
-- [ ] 19. Version management API routes
+- [x] 19. Version management API routes
   - Create `app/api/projects/[projectId]/versions/route.ts` (GET): return all versions sorted by versionNumber asc
   - Create `app/api/projects/[projectId]/versions/[versionId]/route.ts` (GET): return version metadata + pre-signed storage URL
   - Create revert action in `app/api/projects/[projectId]/versions/[versionId]/route.ts` (POST with `action: 'revert'`):
@@ -260,15 +260,15 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Enforce project ownership checks on all routes
   - _Requirements: 9.1, 9.2, 9.3, 9.4_
 
-  - [ ] 19.1 Write property test: version numbers always increment by exactly one
+  - [x] 19.1 Write property test: version numbers always increment by exactly one
     - **Property 17: Version numbers always increment by exactly one**
     - **Validates: Requirements 8.4, 9.3**
 
-  - [ ] 19.2 Write property test: reverting a version produces a new version with identical code
+  - [x] 19.2 Write property test: reverting a version produces a new version with identical code
     - **Property 19: Reverting a version produces a new version with identical code**
     - **Validates: Requirements 9.3**
 
-- [ ] 20. Chat/iterative editing API route
+- [x] 20. Chat/iterative editing API route
   - Create `app/api/projects/[projectId]/chat/route.ts` (POST):
     - Validate edit prompt length [5, 1000] (return 400 on violation)
     - Check credit balance and rate limit
@@ -278,15 +278,15 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Create `app/api/projects/[projectId]/chat/route.ts` (GET): return all ChatMessages for project ordered by createdAt asc
   - _Requirements: 8.1, 8.2, 8.4, 8.5, 8.6_
 
-  - [ ] 20.1 Write property test: edit prompts outside valid length range are always rejected
+  - [x] 20.1 Write property test: edit prompts outside valid length range are always rejected
     - **Property 15: Edit prompts outside the valid length range are always rejected**
     - **Validates: Requirements 8.1**
 
-  - [ ] 20.2 Write property test: chat messages are always returned in chronological order
+  - [x] 20.2 Write property test: chat messages are always returned in chronological order
     - **Property 18: Chat messages are always returned in chronological order**
     - **Validates: Requirements 8.5**
 
-- [ ] 21. ZIP export route
+- [x] 21. ZIP export route
   - Install `jszip`
   - Create `app/api/projects/[projectId]/export/route.ts` (POST):
     - Fetch latest Version's HTML from S3
@@ -297,11 +297,11 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
     - Do NOT modify CreditLedger
   - _Requirements: 10.1, 10.2, 10.3, 10.4_
 
-  - [ ] 21.1 Write property test: ZIP export never changes the credit balance
+  - [x] 21.1 Write property test: ZIP export never changes the credit balance
     - **Property 20: ZIP export never changes the credit balance**
     - **Validates: Requirements 10.4**
 
-- [ ] 22. Vercel deploy route
+- [x] 22. Vercel deploy route
   - Create `lib/ai/vercel-deploy.ts`: POST to Vercel API `/v13/deployments` using `VERCEL_API_TOKEN` (server-side only)
   - Create `app/api/projects/[projectId]/deploy/route.ts` (POST):
     - Fetch latest Version's HTML from S3
@@ -311,27 +311,27 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
     - Do NOT modify CreditLedger
   - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5_
 
-  - [ ] 22.1 Write property test: Vercel deploy never changes the credit balance
+  - [x] 22.1 Write property test: Vercel deploy never changes the credit balance
     - **Property 21: Vercel deploy never changes the credit balance**
     - **Validates: Requirements 11.4**
 
-  - [ ] 22.2 Write property test: Vercel deploy failures never corrupt the Version record
+  - [x] 22.2 Write property test: Vercel deploy failures never corrupt the Version record
     - **Property 22: Vercel deploy failures never corrupt the Version record**
     - **Validates: Requirements 11.3**
 
-- [ ] 23. Projects list and delete API routes
+- [x] 23. Projects list and delete API routes
   - Create `app/api/projects/route.ts` (GET): return all user's projects sorted by updatedAt desc, including latest Version metadata and total credit usage
   - Create `app/api/projects/[projectId]/route.ts` (DELETE): delete project and all child records (Prisma cascade), delete S3 objects under `{userId}/{projectId}/`
   - _Requirements: 12.1, 9.4_
 
-  - [ ] 23.1 Write property test: dashboard project list is always sorted by last-edited date descending
+  - [x] 23.1 Write property test: dashboard project list is always sorted by last-edited date descending
     - **Property 23: Dashboard project list is always sorted by last-edited date descending**
     - **Validates: Requirements 12.1**
 
-- [ ] 24. Checkpoint — Ensure all tests pass
+- [x] 24. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 25. Dashboard UI
+- [x] 25. Dashboard UI
   - Create `app/(dashboard)/dashboard/page.tsx`:
     - Fetch projects from `/api/projects` (server component RSC fetch)
     - Render project cards grid: thumbnail (or placeholder SVG), project name, last-edited date, total credits used
@@ -341,11 +341,11 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Create `app/(dashboard)/dashboard/new/page.tsx`: prompt input landing page
   - _Requirements: 12.1, 12.2, 12.3, 12.4, 19.1_
 
-  - [ ] 25.1 Write unit test: empty state is displayed when user has no projects
+  - [x] 25.1 Write unit test: empty state is displayed when user has no projects
     - Render dashboard with empty projects array, verify empty-state message and CTA
     - **Validates: Requirements 12.3**
 
-- [ ] 26. Prompt input UI and project creation flow
+- [x] 26. Prompt input UI and project creation flow
   - Create `components/PromptInput.tsx`:
     - Textarea: min 10, max 2000 characters with live counter
     - Optional preset picker dropdown (industry presets pre-fill textarea)
@@ -355,7 +355,7 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Mobile-responsive layout at 320px+
   - _Requirements: 3.1, 3.2, 3.3, 3.5, 19.1_
 
-- [ ] 27. Project editor page — layout and preview panel
+- [x] 27. Project editor page — layout and preview panel
   - Create `app/(dashboard)/projects/[projectId]/page.tsx`:
     - Two-panel layout: left panel = preview, right panel = chat/versions sidebar
     - Fetch latest version on load; display loading skeleton during generation
@@ -368,15 +368,15 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Set CSP headers via `next.config.js` headers configuration for all app routes
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 16.1, 16.2, 19.3_
 
-  - [ ] 27.1 Write property test: Preview iframe always uses the minimum sandbox attribute set
+  - [x] 27.1 Write property test: Preview iframe always uses the minimum sandbox attribute set
     - **Property 13: Preview iframe always uses the minimum sandbox attribute set**
     - **Validates: Requirements 7.1, 16.1**
 
-  - [ ] 27.2 Write property test: all application pages include a correct CSP header
+  - [x] 27.2 Write property test: all application pages include a correct CSP header
     - **Property 14: All application pages include a correct Content Security Policy header**
     - **Validates: Requirements 16.2**
 
-- [ ] 28. Generation status UI — progress indicator
+- [x] 28. Generation status UI — progress indicator
   - Create `components/GenerationStatus.tsx`:
     - Display spinner + status label (Pending → Generating spec → Generating code → Complete / Failed)
     - Subscribe to SSE stream from `useJobStatus(jobId)` hook
@@ -385,7 +385,7 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Create `hooks/useJobStatus.ts`: SSE client hook managing EventSource lifecycle
   - _Requirements: 6.3, 6.4, 6.5_
 
-- [ ] 29. Chat interface panel
+- [x] 29. Chat interface panel
   - Create `components/ChatPanel.tsx`:
     - Message list: each item shows prompt text, timestamp, status badge (pending/applied/failed)
     - Messages displayed in chronological order (oldest top)
@@ -395,7 +395,7 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
     - On failure: update message status to FAILED, show error reason inline
   - _Requirements: 8.1, 8.2, 8.4, 8.5, 8.6, 19.1_
 
-- [ ] 30. Version history panel
+- [x] 30. Version history panel
   - Create `components/VersionHistory.tsx`:
     - Ordered list of all versions (GET `/api/projects/:id/versions`)
     - Each row: version number, creation timestamp, prompt excerpt, "View" and "Revert" buttons
@@ -404,7 +404,7 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
     - Highlight currently displayed version
   - _Requirements: 9.1, 9.2, 9.3_
 
-- [ ] 31. ZIP export and Vercel deploy UI
+- [x] 31. ZIP export and Vercel deploy UI
   - Add "Export ZIP" button to project editor toolbar:
     - POST `/api/projects/:id/export`, show loading state, trigger browser download via anchor click on returned URL
     - Must complete within 5 seconds; show timeout error if not
@@ -415,7 +415,7 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Neither action shows credit deduction
   - _Requirements: 10.1, 10.4, 11.1, 11.2, 11.3, 11.4_
 
-- [ ] 32. Account and billing page
+- [x] 32. Account and billing page
   - Create `app/(dashboard)/account/page.tsx`:
     - Display: current Tier name, credit balance, renewal date (for paid tiers)
     - Credit ledger table: reverse chronological, showing event type, amount, timestamp, associated job/payment reference
@@ -425,22 +425,22 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Mobile-responsive layout at 320px+
   - _Requirements: 2.6, 13.1, 13.2, 13.3, 13.4, 19.1_
 
-  - [ ] 32.1 Write unit test: billing page renders all required sections
+  - [x] 32.1 Write unit test: billing page renders all required sections
     - Verify tier, balance, renewal date, and ledger history sections are present
     - **Validates: Requirements 13.1**
 
-- [ ] 33. Mobile responsive polish pass
+- [x] 33. Mobile responsive polish pass
   - Audit all primary views (Dashboard, editor, Chat_Interface, account page) at 320px viewport
   - Fix any horizontal overflow issues using Tailwind responsive utilities
   - Verify Preview iframe resize control works at 320px minimum
   - Verify navigation and sidebar collapse correctly on mobile
   - _Requirements: 19.1, 19.2, 19.3_
 
-  - [ ] 33.1 Write property test: all primary UI views render without horizontal overflow at 320px
+  - [x] 33.1 Write property test: all primary UI views render without horizontal overflow at 320px
     - **Property 29: All primary UI views render without horizontal overflow at 320px viewport width**
     - **Validates: Requirements 19.1**
 
-- [ ] 34. Security hardening
+- [x] 34. Security hardening
   - Audit: confirm no AI API calls exist outside `lib/ai/`; no Vercel/S3/Stripe secrets in any client import
   - Confirm `next.config.js` `serverExternalPackages` / bundle analysis shows no secret leakage
   - Confirm all DB writes use Prisma ORM (no raw string interpolation in queries)
@@ -448,10 +448,10 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Add `X-Frame-Options: SAMEORIGIN` and `X-Content-Type-Options: nosniff` headers
   - _Requirements: 16.3, 16.4, 16.5_
 
-- [ ] 35. Checkpoint — Ensure all tests pass
+- [x] 35. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 36. Integration tests — core pipeline
+- [x] 36. Integration tests — core pipeline
   - Write integration test for full create-project pipeline (mock LLM + S3 + Redis):
     - Submit prompt → verify job enqueued → simulate worker → verify Version created + S3 written
   - Write integration test for edit pipeline:
@@ -460,7 +460,7 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Write integration test for ZIP export → S3 upload → pre-signed URL returned
   - _Requirements: 3.3, 5.3, 8.4, 10.1, 10.3_
 
-- [ ] 37. E2E tests with Playwright
+- [x] 37. E2E tests with Playwright
   - Write E2E test: sign up → create project → wait for generation → verify preview loads
   - Write E2E test: submit edit prompt → verify new version appears in history
   - Write E2E test: revert to previous version → verify preview shows reverted code
@@ -468,7 +468,7 @@ This plan decomposes the Orbis SaaS platform into granular, sequentially-ordered
   - Write E2E test: unauthenticated user redirected to login from any dashboard route
   - _Requirements: 1.8, 5.3, 9.3, 10.1_
 
-- [ ] 38. Final checkpoint — Ensure all tests pass
+- [x] 38. Final checkpoint — Ensure all tests pass
   - Run `vitest --run` and verify all unit + property tests pass
   - Run `playwright test` and verify all E2E tests pass
   - Review coverage of all 19 requirements and 29 correctness properties
