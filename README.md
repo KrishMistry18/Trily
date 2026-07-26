@@ -1,23 +1,69 @@
-# Trily
+# Trily - AI Website Builder
 
-**INTERACTIVE UI MARKETPLACE**  
-_Product Concept & Licensing Reference_
+![Trily Banner](https://via.placeholder.com/1200x400/0A0A0F/FFFFFF?text=Trily+-+Design+at+the+speed+of+thought)
 
-A curated marketplace for motion, 3D, and interactive web components — with a peer-to-peer creator storefront.
+Trily is a premium, AI-powered website builder that allows users to generate beautiful, fully functional websites from a simple text prompt. Built with modern web technologies, Trily focuses on an exceptional user experience, blazing-fast performance, and a stunning glassmorphism design system.
 
-## 1. What the Website Is
+## 🚀 Features
 
-A single marketplace for interactive, motion-driven, and 3D-capable website components — positioned as the go-to source for premium hero sections, cursors, data visualizations, scroll effects, and full starter templates that would otherwise require stitching together five or more separate libraries.
+- **AI-Powered Generation**: Describe your ideal website in plain English, and Trily's AI engine generates the code instantly.
+- **Real-Time Preview & Editing**: Edit your generated sites through an intuitive conversational interface.
+- **Premium Glassmorphism UI**: A gorgeous, dark-themed interface built with Tailwind CSS and Framer Motion for buttery-smooth animations.
+- **Secure Authentication**: Passwordless or traditional sign-ins powered by Firebase Authentication.
+- **Credits System & Billing**: Integrated Stripe billing to manage generation and edit credits.
+- **Project Management**: A clean dashboard to track, organize, and revisit your generated websites.
 
-### Two layers of supply
+## 🛠️ Tech Stack
 
-- **Your own catalog**: Original templates, components, and “build prompts” (structured AI prompts + reference code) that you design and build yourself, combining free/open-source libraries under your own custom design system so the end result looks and feels like one unified product.
-- **Creator marketplace**: A peer-to-peer layer where other developers and designers can list, sell, and buy templates and components from each other, with you taking a revenue share on each transaction.
+- **Framework**: [Next.js 14](https://nextjs.org/) (App Router)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Animations**: [Framer Motion](https://www.framer.com/motion/)
+- **Database**: [Firebase Firestore](https://firebase.google.com/docs/firestore)
+- **Authentication**: [Firebase Auth](https://firebase.google.com/docs/auth)
+- **Payments**: [Stripe](https://stripe.com/)
+- **Queues**: [BullMQ](https://docs.bullmq.io/) (Redis)
 
-## 2. Site Structure
+## 💻 Getting Started
 
-- **Browse & Discovery**: Categories by effect type (3D, cursors, scroll animation, data viz, globes/beams) and by source technique, live interactive previews (not static screenshots), search and filtering by framework/price/license.
-- **Product Types**: Ready-to-use components, “build prompts” (AI prompt + reference code bundles), and full starter templates/kits combining several effects.
-- **Buyer Flow**: Preview → purchase (one-time) or subscribe (all-access) → instant download → versioned updates.
-- **Creator/Seller Flow**: Onboarding & identity verification, upload (code + live preview config + license terms), pricing, payout dashboard, revenue share.
-- **Subscription Gate**: A paid subscription required to unlock and purchase components — standard for original, self-owned work; not a workaround for reselling someone else's licensed code.
+### Prerequisites
+
+- Node.js 18+
+- npm or yarn
+- Firebase Project
+- Stripe Account (for payments)
+
+### Installation
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/KrishMistry18/Trily.git
+   cd Trily
+   ```
+
+2. **Install dependencies:**
+
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables:**
+   Create a `.env.local` file in the root directory and add your keys (Firebase, Stripe, OpenAI, etc.).
+
+4. **Run the development server:**
+   ```bash
+   npm run dev
+   ```
+   Open [http://localhost:3000](http://localhost:3000) to view the app in your browser.
+
+## 🎨 Design System
+
+Trily uses a custom design system tokenized in `globals.css` and `tailwind.config.ts`.
+
+- **Colors**: Deep dark background (`#0A0A0F`) with vibrant indigo/fuchsia accents.
+- **Effects**: Heavy use of backdrop-blur (glassmorphism), subtle glowing borders, and drop shadows.
+- **Interactions**: Custom glowing cursor on desktop, smooth staggered scroll animations, and tactile button feedback.
+
+## 📝 License
+
+Copyright © 2026 Trily Inc. All rights reserved.
