@@ -1,69 +1,95 @@
-# Trily - AI Website Builder
+# Trily
 
-![Trily Banner](https://via.placeholder.com/1200x400/0A0A0F/FFFFFF?text=Trily+-+Design+at+the+speed+of+thought)
+Trily is an AI-powered website builder that allows users to instantly generate, preview, edit, and publish modern websites using plain English prompts.
 
-Trily is a premium, AI-powered website builder that allows users to generate beautiful, fully functional websites from a simple text prompt. Built with modern web technologies, Trily focuses on an exceptional user experience, blazing-fast performance, and a stunning glassmorphism design system.
+## Features
 
-## 🚀 Features
+- **AI Generation**: Type what you want, and Trily writes the code in seconds.
+- **Instant Preview**: Live side-by-side preview of your generated site with fully functional HTML, CSS, and JS.
+- **Chat to Edit**: Not quite right? Chat with the AI to make instant visual tweaks.
+- **One-Click Publish**: Deploy your site instantly to a custom subdomain or connect your own domain.
+- **Version History**: Automatic version control. Rollback to any previous iteration of your site with one click.
+- **Secure Backend**: Powered by Firebase Auth, Firestore, and Firebase Storage for robust, scalable infrastructure.
+- **Credit System**: Integrated Stripe billing for generation and edit credits.
 
-- **AI-Powered Generation**: Describe your ideal website in plain English, and Trily's AI engine generates the code instantly.
-- **Real-Time Preview & Editing**: Edit your generated sites through an intuitive conversational interface.
-- **Premium Glassmorphism UI**: A gorgeous, dark-themed interface built with Tailwind CSS and Framer Motion for buttery-smooth animations.
-- **Secure Authentication**: Passwordless or traditional sign-ins powered by Firebase Authentication.
-- **Credits System & Billing**: Integrated Stripe billing to manage generation and edit credits.
-- **Project Management**: A clean dashboard to track, organize, and revisit your generated websites.
+## Tech Stack
 
-## 🛠️ Tech Stack
+- **Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS, Framer Motion
+- **Database**: Firebase Firestore
+- **Storage**: Firebase Storage (via Admin SDK)
+- **Auth**: Firebase Auth
+- **AI Models**: Integration with advanced LLMs for code generation
+- **Queue**: BullMQ with Redis for asynchronous job processing
+- **Payments**: Stripe Checkout and Billing Portal
 
-- **Framework**: [Next.js 14](https://nextjs.org/) (App Router)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Animations**: [Framer Motion](https://www.framer.com/motion/)
-- **Database**: [Firebase Firestore](https://firebase.google.com/docs/firestore)
-- **Authentication**: [Firebase Auth](https://firebase.google.com/docs/auth)
-- **Payments**: [Stripe](https://stripe.com/)
-- **Queues**: [BullMQ](https://docs.bullmq.io/) (Redis)
-
-## 💻 Getting Started
+## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
-- npm or yarn
-- Firebase Project
-- Stripe Account (for payments)
+- Redis (running locally or via a provider like Upstash)
+- Firebase Project (Firestore, Storage, Auth enabled)
+- Stripe Account
+
+### Environment Variables
+
+Create a `.env.local` file in the root directory and configure the following variables:
+
+```env
+# Firebase Client (Public)
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
+
+# Firebase Admin
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=
+
+# Redis (for BullMQ)
+REDIS_URL=
+
+# Stripe
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+
+# AI Provider (e.g. OpenAI/Anthropic)
+AI_API_KEY=
+```
 
 ### Installation
 
-1. **Clone the repository:**
-
-   ```bash
-   git clone https://github.com/KrishMistry18/Trily.git
-   cd Trily
-   ```
-
-2. **Install dependencies:**
+1. Install dependencies:
 
    ```bash
    npm install
    ```
 
-3. **Set up environment variables:**
-   Create a `.env.local` file in the root directory and add your keys (Firebase, Stripe, OpenAI, etc.).
+2. Run the development server:
 
-4. **Run the development server:**
    ```bash
    npm run dev
    ```
-   Open [http://localhost:3000](http://localhost:3000) to view the app in your browser.
 
-## 🎨 Design System
+3. Run the queue worker (in a separate terminal) if required for background processing:
+   ```bash
+   npm run worker
+   ```
 
-Trily uses a custom design system tokenized in `globals.css` and `tailwind.config.ts`.
+Open [http://localhost:3000](http://localhost:3000) in your browser to see the application.
 
-- **Colors**: Deep dark background (`#0A0A0F`) with vibrant indigo/fuchsia accents.
-- **Effects**: Heavy use of backdrop-blur (glassmorphism), subtle glowing borders, and drop shadows.
-- **Interactions**: Custom glowing cursor on desktop, smooth staggered scroll animations, and tactile button feedback.
+## Project Structure
 
-## 📝 License
+- `/app`: Next.js App Router pages and API routes.
+- `/components`: Reusable React components (UI, Chat, Hero, etc.).
+- `/lib`: Core utilities (Firebase Admin, AI generation logic, Queue handlers, Billing).
+- `/public`: Static assets.
 
-Copyright © 2026 Trily Inc. All rights reserved.
+## License
+
+All rights reserved.
