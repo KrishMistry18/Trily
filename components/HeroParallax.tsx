@@ -5,10 +5,11 @@ import React, { useEffect, useState } from "react";
 export function HeroParallax() {
   const [tilt, setTilt] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
 
   useEffect(() => {
     // Mount the iframe after a slight delay to prioritize main thread for hero text paint
-    const timer = setTimeout(() => setIsMounted(true), 100);
+    const timer = setTimeout(() => setIsMounted(true), 800);
     return () => clearTimeout(timer);
   }, []);
 
@@ -35,7 +36,7 @@ export function HeroParallax() {
   return (
     <div className="relative max-w-5xl mx-auto mt-24 px-4 perspective-[2000px]">
       <div
-        className="relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-2xl overflow-hidden aspect-video flex flex-col transition-transform duration-75 ease-out"
+        className="relative rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-2xl overflow-hidden aspect-[16/10] flex flex-col transition-transform duration-75 ease-out"
         style={{
           transform: `rotateX(${tilt}deg) translateY(${tilt * -2}px)`,
           transformStyle: "preserve-3d",
@@ -63,10 +64,10 @@ export function HeroParallax() {
         {/* Iframe Placeholder */}
         <div className="flex-1 relative overflow-hidden bg-white">
           {/* Loading shimmer */}
-          <div className="absolute inset-0 bg-slate-100 animate-pulse z-0" />
+          {!iframeLoaded && <div className="absolute inset-0 bg-slate-100 animate-pulse z-0" />}
 
           {isMounted && (
-            <div className="absolute inset-0 w-[150%] h-[150%] origin-top-left scale-[0.666666] z-10">
+            <div className="absolute inset-0 w-[200%] h-[200%] origin-top-left scale-[0.5] z-10">
               <iframe
                 srcDoc="
                   <html>
@@ -94,8 +95,9 @@ export function HeroParallax() {
                     </body>
                   </html>
                 "
-                className="w-full h-full border-0 bg-transparent"
+                className={`w-full h-full border-0 bg-transparent transition-opacity duration-500 pointer-events-none ${iframeLoaded ? "opacity-100" : "opacity-0"}`}
                 sandbox="allow-scripts"
+                onLoad={() => setIframeLoaded(true)}
               />
             </div>
           )}

@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import React, { useState } from "react";
 
 import Link from "next/link";
 
@@ -7,10 +9,11 @@ import { Button } from "@/components/ui/Button";
 import { OfficialExample } from "@/types/db";
 
 export function ExampleCard({ example }: { example: OfficialExample }) {
+  const [iframeLoaded, setIframeLoaded] = useState(false);
   return (
     <div className="group flex flex-col rounded-2xl bg-white/5 border border-white/10 overflow-hidden hover:border-white/20 transition-colors shadow-sm">
       {/* Interactive Thumbnail */}
-      <div className="relative aspect-[4/3] bg-black overflow-hidden border-b border-white/10">
+      <div className="relative aspect-[16/10] bg-black overflow-hidden border-b border-white/10">
         <div className="absolute top-4 left-4 z-10 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-xs font-semibold text-white/90">
           {example.industryTag}
         </div>
@@ -18,12 +21,13 @@ export function ExampleCard({ example }: { example: OfficialExample }) {
         {/* Iframe wrapper for scaling */}
         <div className="absolute inset-0 w-[400%] h-[400%] origin-top-left scale-[0.25] transition-transform duration-700 ease-out group-hover:scale-[0.26]">
           {/* Loading shimmer */}
-          <div className="absolute inset-0 bg-slate-100 animate-pulse z-0" />
+          {!iframeLoaded && <div className="absolute inset-0 bg-slate-100 animate-pulse z-0" />}
           <iframe
             srcDoc={example.generatedCode}
-            className="w-full h-full border-0 pointer-events-none bg-transparent relative z-10"
+            className={`w-full h-full border-0 pointer-events-none bg-transparent relative z-10 transition-opacity duration-300 ${iframeLoaded ? "opacity-100" : "opacity-0"}`}
             tabIndex={-1}
             sandbox="allow-scripts"
+            onLoad={() => setIframeLoaded(true)}
           />
         </div>
 
