@@ -6,4 +6,4 @@
  */
 
 // Re-export domain types as they are defined in later tasks.
-export type {};
+export * from "./db";

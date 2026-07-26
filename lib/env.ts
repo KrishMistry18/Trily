@@ -7,7 +7,6 @@
  * Requirement 16.4 — secrets must never be included in the client-side bundle.
  * This file is intentionally server-only: never import it from client components.
  */
-
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
@@ -20,9 +19,7 @@ const envSchema = z.object({
 
   // NextAuth
   NEXTAUTH_URL: z.string().url("NEXTAUTH_URL must be a valid URL"),
-  NEXTAUTH_SECRET: z
-    .string()
-    .min(32, "NEXTAUTH_SECRET must be at least 32 characters"),
+  NEXTAUTH_SECRET: z.string().min(32, "NEXTAUTH_SECRET must be at least 32 characters"),
   GOOGLE_CLIENT_ID: z.string().min(1, "GOOGLE_CLIENT_ID is required"),
   GOOGLE_CLIENT_SECRET: z.string().min(1, "GOOGLE_CLIENT_SECRET is required"),
 
@@ -33,6 +30,7 @@ const envSchema = z.object({
   AI_API_KEY: z.string().min(1, "AI_API_KEY is required"),
   ANTHROPIC_MODEL: z.string().default("claude-3-5-sonnet-20241022"),
   OPENAI_MODEL: z.string().default("gpt-4o"),
+  GEMINI_API_KEY: z.string().min(1, "GEMINI_API_KEY is required"),
 
   // Image Generation (optional — only required when IMAGE_PROVIDER is set)
   IMAGE_PROVIDER: z.enum(["replicate", "fal"]).optional(),
@@ -55,24 +53,14 @@ const envSchema = z.object({
     .string()
     .startsWith("whsec_", "STRIPE_WEBHOOK_SECRET must start with whsec_"),
   STRIPE_PRICE_PRO_MONTHLY: z.string().min(1, "STRIPE_PRICE_PRO_MONTHLY is required"),
-  STRIPE_PRICE_BUSINESS_MONTHLY: z
-    .string()
-    .min(1, "STRIPE_PRICE_BUSINESS_MONTHLY is required"),
+  STRIPE_PRICE_BUSINESS_MONTHLY: z.string().min(1, "STRIPE_PRICE_BUSINESS_MONTHLY is required"),
 
   // Vercel
   VERCEL_API_TOKEN: z.string().min(1, "VERCEL_API_TOKEN is required"),
 
   // Rate Limiting
-  RATE_LIMIT_MAX_REQUESTS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(5),
-  RATE_LIMIT_WINDOW_MS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(60000),
+  RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(5),
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
 
   // Worker
   WORKER_CONCURRENCY: z.coerce.number().int().positive().default(3),

@@ -1,34 +1,21 @@
-/**
- * middleware.ts
- *
- * Route protection middleware.
- * NextAuth has been replaced with Firebase Auth.
- * Proper Firebase session cookie validation should be implemented here using
- * next-firebase-auth-edge or similar if server-side protection is required.
- * For now, we allow requests to proceed and rely on client-side and API route protection.
- */
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-function isProtectedRoute(pathname: string): boolean {
-  return (
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/api/projects") ||
-    pathname.startsWith("/api/billing")
-  );
-}
+export const config = {
+  matcher: ["/((?!api/|_next/|_static/|_vercel|[\\w-]+\\.\\w+).*)"],
+};
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+export default async function middleware(req: NextRequest) {
+  const hostname = req.headers.get("host") || "";
 
-  // NOTE: Server-side Firebase token verification requires next-firebase-auth-edge
-  // or a custom implementation using Firebase Admin SDK (which cannot run on Edge).
-  // This is a placeholder that allows requests to pass through to be validated
-  // at the API route level or client side.
+  const isLocalhost = hostname.includes("localhost") || hostname.includes("127.0.0.1");
+  const isVercel = hostname.includes("vercel.app");
+
+  if (!isLocalhost && !isVercel) {
+    return NextResponse.rewrite(
+      new URL(`/api/proxy?domain=${encodeURIComponent(hostname)}`, req.url),
+    );
+  }
 
   return NextResponse.next();
 }
-
-export const config = {
-  matcher: ["/dashboard/:path*", "/api/projects/:path*", "/api/billing/:path*"],
-};
