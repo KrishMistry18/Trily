@@ -1,36 +1,32 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Trily
 
-## Getting Started
+**INTERACTIVE UI MARKETPLACE**  
+_Product Concept & Licensing Reference_
 
-First, run the development server:
+A curated marketplace for motion, 3D, and interactive web components — with a peer-to-peer creator storefront.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 1. What the Website Is
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+A single marketplace for interactive, motion-driven, and 3D-capable website components — positioned as the go-to source for premium hero sections, cursors, data visualizations, scroll effects, and full starter templates that would otherwise require stitching together five or more separate libraries.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Two layers of supply
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Your own catalog**: Original templates, components, and “build prompts” (structured AI prompts + reference code) that you design and build yourself, combining free/open-source libraries under your own custom design system so the end result looks and feels like one unified product.
+- **Creator marketplace**: A peer-to-peer layer where other developers and designers can list, sell, and buy templates and components from each other, with you taking a revenue share on each transaction.
 
-## Learn More
+### Core value proposition
 
-To learn more about Next.js, take a look at the following resources:
+The underlying libraries are mostly free — so the business does not sell access to the libraries themselves. It sells:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Curation** — saving buyers the time of discovering, evaluating, and combining scattered libraries.
+- **Integration** — pre-built combinations (e.g., a 3D landing page starter using a Rive cursor + an animated globe + scroll-triggered motion) that work together out of the box.
+- **Original design** — your own visual language applied consistently across the catalog, not a repackaging of any single library's demo look.
+- **A live marketplace** — network effects from creators selling to each other, which no single component library offers on its own.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 2. Site Structure
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Browse & Discovery**: Categories by effect type (3D, cursors, scroll animation, data viz, globes/beams) and by source technique, live interactive previews (not static screenshots), search and filtering by framework/price/license.
+- **Product Types**: Ready-to-use components, “build prompts” (AI prompt + reference code bundles), and full starter templates/kits combining several effects.
+- **Buyer Flow**: Preview → purchase (one-time) or subscribe (all-access) → instant download → versioned updates.
+- **Creator/Seller Flow**: Onboarding & identity verification, upload (code + live preview config + license terms), pricing, payout dashboard, revenue share.
+- **Subscription Gate**: A paid subscription required to unlock and purchase components — standard for original, self-owned work; not a workaround for reselling someone else's licensed code.
