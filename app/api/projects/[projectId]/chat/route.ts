@@ -6,20 +6,19 @@
  *
  * Requirements: 8.1, 8.2, 8.4, 8.5, 8.6
  */
+import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { getCreditBalance } from "@/lib/billing/credits";
-import { CREDIT_COSTS } from "@/lib/billing/config";
+import { JobStatus, JobType } from "@/types";
+import * as admin from "firebase-admin";
+
+import { checkAndDeductCredits, getCreditsBalance } from "@/lib/billing/credits";
 import { db } from "@/lib/db";
 import { generationQueue } from "@/lib/queue/generationQueue";
 import { checkRateLimit } from "@/lib/rate-limit";
-import { CreditEventType, JobStatus, JobType } from "@prisma/client";
-import { NextRequest, NextResponse } from "next/server";
-
-// Re-export validation helpers so property tests can import from one place
-export {
-  EDIT_PROMPT_MIN_LENGTH,
+import {
   EDIT_PROMPT_MAX_LENGTH,
+  EDIT_PROMPT_MIN_LENGTH,
   validateEditPromptLength,
 } from "@/lib/validation/prompt";
 
@@ -27,25 +26,16 @@ export {
 // Helper: verify project ownership
 // ---------------------------------------------------------------------------
 
-async function verifyOwnership(
-  projectId: string,
-  userId: string
-): Promise<boolean> {
-  const project = await db.project.findUnique({
-    where: { id: projectId },
-    select: { userId: true },
-  });
-  return project?.userId === userId;
+async function verifyOwnership(projectId: string, userId: string): Promise<boolean> {
+  const projectDoc = await db.collection("projects").doc(projectId).get();
+  return projectDoc.exists && projectDoc.data()?.ownerId === userId;
 }
 
 // ---------------------------------------------------------------------------
 // POST — Submit edit prompt (Req 8.1, 8.2, 8.4, 8.6)
 // ---------------------------------------------------------------------------
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { projectId: string } }
-) {
+export async function POST(req: NextRequest, { params }: { params: { projectId: string } }) {
   // 1. Authenticate
   const session = await auth();
   if (!session?.user?.id) {
@@ -86,72 +76,66 @@ export async function POST(
       {
         status: 429,
         headers: { "Retry-After": String(retryAfterSeconds) },
-      }
+      },
     );
   }
 
   // 6. Check credit balance
-  const balance = await getCreditBalance(userId);
+  const balance = await getCreditsBalance(userId);
   if (balance <= 0) {
     return NextResponse.json({ error: "Insufficient credits" }, { status: 402 });
   }
 
   // 7. Fetch latest version for the project (needed by the worker)
-  const latestVersion = await db.version.findFirst({
-    where: { projectId },
-    orderBy: { versionNumber: "desc" },
-    select: { id: true },
+  const versionsSnap = await db
+    .collection("versions")
+    .where("projectId", "==", projectId)
+    .orderBy("createdAt", "desc")
+    .limit(1)
+    .get();
+
+  let latestVersionId = null;
+  if (!versionsSnap.empty) {
+    latestVersionId = versionsSnap.docs[0].id;
+  }
+
+  // 8. Deduct credits and insert ChatMessage + GenerationJob
+  const chatMessageRef = db.collection("chatMessages").doc();
+  const jobRef = db.collection("generationJobs").doc();
+
+  try {
+    // Atomic transaction for deducting credits
+    await checkAndDeductCredits(userId, "edit", projectId);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || "Insufficient credits" }, { status: 402 });
+  }
+
+  const timestamp = admin.firestore.FieldValue.serverTimestamp();
+
+  // Create Job
+  await jobRef.set({
+    id: jobRef.id,
+    userId,
+    projectId,
+    type: JobType.EDIT,
+    status: JobStatus.PENDING,
+    prompt: validPrompt,
+    createdAt: timestamp,
+    updatedAt: timestamp,
   });
 
-  // 8. DB transaction: INSERT ChatMessage + GenerationJob + CreditLedger DEDUCTION
-  const { jobId, chatMessageId } = await db.$transaction(async (tx) => {
-    // Insert ChatMessage (PENDING)
-    const chatMessage = await tx.chatMessage.create({
-      data: {
-        projectId,
-        prompt: validPrompt,
-        status: "PENDING",
-      },
-    });
-
-    // Insert GenerationJob (EDIT, PENDING)
-    const job = await tx.generationJob.create({
-      data: {
-        userId,
-        projectId,
-        type: JobType.EDIT,
-        status: JobStatus.PENDING,
-        prompt: validPrompt,
-        creditsDeducted: CREDIT_COSTS.EDIT_JOB,
-      },
-    });
-
-    // Link chat message to job
-    await tx.chatMessage.update({
-      where: { id: chatMessage.id },
-      data: { jobId: job.id },
-    });
-
-    // Insert CreditLedger DEDUCTION
-    const latestLedger = await tx.creditLedger.findFirst({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      select: { balanceAfter: true },
-    });
-    const balanceAfter = (latestLedger?.balanceAfter ?? 0) - CREDIT_COSTS.EDIT_JOB;
-
-    await tx.creditLedger.create({
-      data: {
-        userId,
-        eventType: CreditEventType.DEDUCTION,
-        amount: CREDIT_COSTS.EDIT_JOB,
-        balanceAfter,
-        generationJobId: job.id,
-      },
-    });
-
-    return { jobId: job.id, chatMessageId: chatMessage.id };
+  // Create Chat Message
+  await chatMessageRef.set({
+    id: chatMessageRef.id,
+    projectId,
+    prompt: validPrompt,
+    status: "PENDING",
+    jobId: jobRef.id,
+    createdAt: timestamp,
   });
+
+  const jobId = jobRef.id;
+  const chatMessageId = chatMessageRef.id;
 
   // 9. Enqueue BullMQ edit job (Req 8.4)
   await generationQueue.add(jobId, {
@@ -160,7 +144,7 @@ export async function POST(
     projectId,
     type: "edit",
     prompt: validPrompt,
-    currentVersionId: latestVersion?.id,
+    currentVersionId: latestVersionId,
     includeImageGeneration: false,
   });
 
@@ -171,10 +155,7 @@ export async function POST(
 // GET — Return all chat messages in chronological order (Req 8.5)
 // ---------------------------------------------------------------------------
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { projectId: string } }
-) {
+export async function GET(_req: NextRequest, { params }: { params: { projectId: string } }) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -187,16 +168,21 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const messages = await db.chatMessage.findMany({
-    where: { projectId },
-    orderBy: { createdAt: "asc" },
-    select: {
-      id: true,
-      prompt: true,
-      status: true,
-      jobId: true,
-      createdAt: true,
-    },
+  const messagesSnap = await db
+    .collection("chatMessages")
+    .where("projectId", "==", projectId)
+    .orderBy("createdAt", "asc")
+    .get();
+
+  const messages = messagesSnap.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: data.id,
+      prompt: data.prompt,
+      status: data.status,
+      jobId: data.jobId,
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+    };
   });
 
   return NextResponse.json(messages);

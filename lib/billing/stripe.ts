@@ -6,13 +6,10 @@
  * IMPORTANT: This module must NEVER be imported by client-side code.
  * The Stripe secret key is only available in server-side environment variables.
  */
-
 import Stripe from "stripe";
 
 if (typeof window !== "undefined") {
-  throw new Error(
-    "lib/billing/stripe.ts must only be imported in server-side code."
-  );
+  throw new Error("lib/billing/stripe.ts must only be imported in server-side code.");
 }
 
 /**
@@ -43,7 +40,8 @@ export async function createCheckoutSession(
   priceId: string,
   mode: "subscription" | "payment",
   successUrl: string,
-  cancelUrl: string
+  cancelUrl: string,
+  metadata?: Record<string, string>,
 ): Promise<string> {
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
@@ -51,6 +49,7 @@ export async function createCheckoutSession(
     line_items: [{ price: priceId, quantity: 1 }],
     success_url: successUrl,
     cancel_url: cancelUrl,
+    metadata,
   });
   if (!session.url) {
     throw new Error("Stripe did not return a checkout URL.");
@@ -65,10 +64,7 @@ export async function createCheckoutSession(
  * @param customerId  Stripe customer ID
  * @param returnUrl   URL to redirect to after the portal session ends
  */
-export async function createPortalSession(
-  customerId: string,
-  returnUrl: string
-): Promise<string> {
+export async function createPortalSession(customerId: string, returnUrl: string): Promise<string> {
   const session = await stripe.billingPortal.sessions.create({
     customer: customerId,
     return_url: returnUrl,
@@ -83,10 +79,7 @@ export async function createPortalSession(
  * @param email  User's email address
  * @param name   Optional display name
  */
-export async function upsertStripeCustomer(
-  email: string,
-  name?: string
-): Promise<string> {
+export async function upsertStripeCustomer(email: string, name?: string): Promise<string> {
   const existing = await stripe.customers.list({ email, limit: 1 });
   if (existing.data.length > 0) {
     return existing.data[0].id;
@@ -106,13 +99,10 @@ export async function upsertStripeCustomer(
  * @param rawBody   Raw request body as a Buffer or string
  * @param signature Value of the `stripe-signature` header
  */
-export function constructWebhookEvent(
-  rawBody: string | Buffer,
-  signature: string
-): Stripe.Event {
+export function constructWebhookEvent(rawBody: string | Buffer, signature: string): Stripe.Event {
   return stripe.webhooks.constructEvent(
     rawBody,
     signature,
-    process.env.STRIPE_WEBHOOK_SECRET ?? ""
+    process.env.STRIPE_WEBHOOK_SECRET ?? "",
   );
 }

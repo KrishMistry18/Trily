@@ -8,21 +8,17 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 
+import { auth } from "@/auth";
 import { JobStatus, JobType } from "@/types";
 import * as admin from "firebase-admin";
 
-import { getAuthUserId } from "@/lib/auth-utils";
-import { CREDIT_COSTS } from "@/lib/billing/config";
-import { getCreditBalance } from "@/lib/billing/credits";
-import { CreditEventType } from "@/lib/billing/credits";
+import { checkAndDeductCredits, getCreditsBalance } from "@/lib/billing/credits";
 import { db } from "@/lib/db";
 import { generationQueue } from "@/lib/queue/generationQueue";
 import { checkRateLimit } from "@/lib/rate-limit";
-
-// Re-export validation helpers so property tests can import from one place
-export {
-  PROMPT_MIN_LENGTH,
+import {
   PROMPT_MAX_LENGTH,
+  PROMPT_MIN_LENGTH,
   validatePromptLength,
 } from "@/lib/validation/prompt";
 
@@ -31,11 +27,11 @@ export {
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
-  // 1. Authenticate (Req 3.1)
-  const userId = await getAuthUserId(req);
-  if (!userId) {
+  const session = await auth();
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const userId = session.user.id;
 
   // 2. Rate limit check (Req 3.3)
   const rateLimitResult = await checkRateLimit(userId);
@@ -72,69 +68,46 @@ export async function POST(req: NextRequest) {
   const validPrompt = prompt as string;
 
   // 5. Check credit balance (Req 3.4)
-  const balance = await getCreditBalance(userId);
+  const balance = await getCreditsBalance(userId);
   if (balance <= 0) {
     return NextResponse.json({ error: "Insufficient credits" }, { status: 402 });
   }
 
-  // 6. DB transaction: INSERT Project + GenerationJob + CreditLedger DEDUCTION (Req 3.6, 6.1)
+  // 6. Deduct credits and create DB records (Req 3.6, 6.1)
   const projectRef = db.collection("projects").doc();
   const jobRef = db.collection("generationJobs").doc();
-  const ledgerRef = db.collection("creditLedgers").doc();
 
-  await db.runTransaction(async (tx) => {
-    // Re-check balance inside transaction
-    const balanceQuery = db.collection("creditLedgers").where("userId", "==", userId).get();
+  try {
+    // This function runs an atomic transaction on the user's credit balance
+    // and creates a transaction log document. It will throw if balance < cost.
+    await checkAndDeductCredits(userId, "generation", projectRef.id);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || "Insufficient credits" }, { status: 402 });
+  }
 
-    const balanceSnap = await tx.get(balanceQuery);
-    let currentBalance = 0;
-    if (!balanceSnap.empty) {
-      const docs = balanceSnap.docs.map((doc) => doc.data());
-      docs.sort((a, b) => b.createdAt.toDate().getTime() - a.createdAt.toDate().getTime());
-      currentBalance = docs[0].balanceAfter;
-    }
+  // Create project
+  await projectRef.set({
+    projectId: projectRef.id,
+    ownerId: userId,
+    name: validPrompt.slice(0, 80),
+    prompt: validPrompt,
+    status: "draft",
+    currentVersionId: "",
+    thumbnailUrl: "",
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
 
-    if (currentBalance < CREDIT_COSTS.CREATE_JOB) {
-      throw new Error("Insufficient credits");
-    }
-
-    const balanceAfter = currentBalance - CREDIT_COSTS.CREATE_JOB;
-
-    // Create project
-    tx.set(projectRef, {
-      id: projectRef.id,
-      userId,
-      name: validPrompt.slice(0, 80),
-      prompt: validPrompt,
-      totalCreditsUsed: 0,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    // Create generation job (PENDING)
-    tx.set(jobRef, {
-      id: jobRef.id,
-      userId,
-      projectId: projectRef.id,
-      type: JobType.CREATE,
-      status: JobStatus.PENDING,
-      prompt: validPrompt,
-      creditsDeducted: CREDIT_COSTS.CREATE_JOB,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    // Insert CreditLedger DEDUCTION
-    tx.set(ledgerRef, {
-      id: ledgerRef.id,
-      userId,
-      eventType: CreditEventType.DEDUCTION,
-      amount: CREDIT_COSTS.CREATE_JOB,
-      balanceAfter,
-      generationJobId: jobRef.id,
-      stripePaymentId: null,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+  // Create generation job (PENDING)
+  await jobRef.set({
+    id: jobRef.id,
+    userId,
+    projectId: projectRef.id,
+    type: JobType.CREATE,
+    status: JobStatus.PENDING,
+    prompt: validPrompt,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
   });
 
   const projectId = projectRef.id;
@@ -159,14 +132,15 @@ export async function POST(req: NextRequest) {
 // ---------------------------------------------------------------------------
 
 export async function GET(req: NextRequest) {
-  const userId = await getAuthUserId(req);
-  if (!userId) {
+  const session = await auth();
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const userId = session.user.id;
 
   const projectsSnap = await db
     .collection("projects")
-    .where("userId", "==", userId)
+    .where("ownerId", "==", userId)
     .orderBy("updatedAt", "desc")
     .get();
 
@@ -178,7 +152,7 @@ export async function GET(req: NextRequest) {
     const versionsSnap = await db
       .collection("versions")
       .where("projectId", "==", doc.id)
-      .orderBy("versionNumber", "desc")
+      .orderBy("createdAt", "desc")
       .limit(1)
       .get();
 
@@ -186,20 +160,17 @@ export async function GET(req: NextRequest) {
     if (!versionsSnap.empty) {
       const v = versionsSnap.docs[0].data();
       latestVersion = {
-        id: v.id,
-        versionNumber: v.versionNumber,
-        storageKey: v.storageKey,
-        deployUrl: v.deployUrl,
+        versionId: v.versionId,
+        projectId: v.projectId,
         createdAt: v.createdAt,
       };
     }
 
     projects.push({
-      id: p.id,
+      id: p.projectId,
       name: p.name,
       prompt: p.prompt,
       thumbnailUrl: p.thumbnailUrl,
-      totalCreditsUsed: p.totalCreditsUsed,
       createdAt: p.createdAt?.toDate ? p.createdAt.toDate() : p.createdAt,
       updatedAt: p.updatedAt?.toDate ? p.updatedAt.toDate() : p.updatedAt,
       latestVersion,

@@ -12,19 +12,17 @@
  *
  * Requirements: 6.3, 6.4, 6.5
  */
+import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
+import { JobStatus } from "@/types";
+
 import { db } from "@/lib/db";
 import redis from "@/lib/queue/redis";
-import { JobStatus } from "@prisma/client";
-import { NextRequest, NextResponse } from "next/server";
 
 const TERMINAL_STATUSES = new Set<JobStatus>([JobStatus.COMPLETED, JobStatus.FAILED]);
 
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { jobId: string } }
-) {
+export async function GET(req: NextRequest, { params }: { params: { jobId: string } }) {
   // 1. Authenticate
   const session = await auth();
   if (!session?.user?.id) {
@@ -34,14 +32,13 @@ export async function GET(
   const { jobId } = params;
 
   // 2. Verify job exists and belongs to the user
-  const job = await db.generationJob.findUnique({
-    where: { id: jobId },
-    select: { id: true, userId: true, status: true },
-  });
+  const jobDoc = await db.collection("generationJobs").doc(jobId).get();
 
-  if (!job) {
+  if (!jobDoc.exists) {
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
+
+  const job = jobDoc.data()!;
 
   if (job.userId !== userId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -66,9 +63,7 @@ export async function GET(
 
       function sendEvent(data: Record<string, unknown>) {
         try {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(data)}\n\n`)
-          );
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
         } catch {
           // Controller may be closed if client disconnected
         }
@@ -114,18 +109,18 @@ export async function GET(
 
       // Re-check status after subscribing in case the job completed between
       // our initial check and the subscribe call (avoids missed events).
-      const currentJob = await db.generationJob.findUnique({
-        where: { id: jobId },
-        select: { status: true },
-      });
+      const currentJobDoc = await db.collection("generationJobs").doc(jobId).get();
 
-      if (currentJob && TERMINAL_STATUSES.has(currentJob.status)) {
-        sendEvent({ jobId, status: currentJob.status.toLowerCase() });
-        cleanup();
-        try {
-          controller.close();
-        } catch {
-          // already closed
+      if (currentJobDoc.exists) {
+        const currentJob = currentJobDoc.data()!;
+        if (TERMINAL_STATUSES.has(currentJob.status)) {
+          sendEvent({ jobId, status: currentJob.status.toLowerCase() });
+          cleanup();
+          try {
+            controller.close();
+          } catch {
+            // already closed
+          }
         }
       }
     },

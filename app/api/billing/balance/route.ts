@@ -6,11 +6,12 @@
  *
  * Requirements: 2.6, 13.1
  */
+import { NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { getCreditBalance } from "@/lib/billing/credits";
+
+import { getCreditsBalance } from "@/lib/billing/credits";
 import { db } from "@/lib/db";
-import { NextResponse } from "next/server";
 
 export async function GET() {
   const session = await auth();
@@ -19,16 +20,13 @@ export async function GET() {
   }
   const userId = session.user.id;
 
-  const [balance, user] = await Promise.all([
-    getCreditBalance(userId),
-    db.user.findUnique({
-      where: { id: userId },
-      select: { tier: true },
-    }),
+  const [balance, userDoc] = await Promise.all([
+    getCreditsBalance(userId),
+    db.collection("users").doc(userId).get(),
   ]);
 
   return NextResponse.json({
     balance,
-    tier: user?.tier ?? "FREE",
+    tier: userDoc.exists ? (userDoc.data()?.subscriptionTier ?? "free") : "free",
   });
 }

@@ -3,60 +3,29 @@
  *
  * DELETE /api/projects/:projectId
  *   - Authenticate and verify project ownership.
- *   - Delete the project and all child records (Prisma cascade).
- *   - Delete all S3 objects under {userId}/{projectId}/.
+ *   - Delete the project and all child records from Firestore.
+ *   - Delete all Firebase Storage objects under {userId}/{projectId}/.
  *
  * Requirements: 12.1, 9.4
  */
-
-import { auth } from "@/auth";
-import { db } from "@/lib/db";
-import { s3 } from "@/lib/storage/s3Client";
-import {
-  DeleteObjectsCommand,
-  ListObjectsV2Command,
-} from "@aws-sdk/client-s3";
 import { NextRequest, NextResponse } from "next/server";
 
-/** Deletes all S3 objects under a given prefix. */
-async function deleteS3Prefix(userId: string, projectId: string): Promise<void> {
-  const bucket = process.env.S3_BUCKET_NAME ?? "";
+import { auth } from "@/auth";
+// Using standard firebase-admin if initialized
+import * as admin from "firebase-admin";
+
+import { db } from "@/lib/db";
+import { storage } from "@/lib/firebase";
+
+/** Deletes all Firebase Storage objects under a given prefix. */
+async function deleteStoragePrefix(userId: string, projectId: string): Promise<void> {
   const prefix = `${userId}/${projectId}/`;
+  const bucket = admin.storage().bucket();
 
-  let continuationToken: string | undefined;
-
-  do {
-    const listResponse = await s3.send(
-      new ListObjectsV2Command({
-        Bucket: bucket,
-        Prefix: prefix,
-        ContinuationToken: continuationToken,
-      })
-    );
-
-    const objects = listResponse.Contents ?? [];
-    if (objects.length > 0) {
-      await s3.send(
-        new DeleteObjectsCommand({
-          Bucket: bucket,
-          Delete: {
-            Objects: objects.map((o) => ({ Key: o.Key! })),
-            Quiet: true,
-          },
-        })
-      );
-    }
-
-    continuationToken = listResponse.IsTruncated
-      ? listResponse.NextContinuationToken
-      : undefined;
-  } while (continuationToken);
+  await bucket.deleteFiles({ prefix });
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { projectId: string } }
-) {
+export async function DELETE(_req: NextRequest, { params }: { params: { projectId: string } }) {
   // 1. Authenticate
   const session = await auth();
   if (!session?.user?.id) {
@@ -66,28 +35,48 @@ export async function DELETE(
   const { projectId } = params;
 
   // 2. Verify project ownership
-  const project = await db.project.findUnique({
-    where: { id: projectId },
-    select: { userId: true },
-  });
+  const projectDoc = await db.collection("projects").doc(projectId).get();
 
-  if (!project) {
+  if (!projectDoc.exists) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (project.userId !== userId) {
+  if (projectDoc.data()?.ownerId !== userId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // 3. Delete project (cascades to Version, GenerationJob, ChatMessage via Prisma)
-  await db.project.delete({ where: { id: projectId } });
+  // 3. Delete project and its children from Firestore
+  const batch = db.batch();
 
-  // 4. Delete S3 objects (best-effort — do not fail the response if S3 fails)
+  // Delete the project document
+  batch.delete(projectDoc.ref);
+
+  // Delete all versions for this project
+  const versionsSnap = await db.collection("versions").where("projectId", "==", projectId).get();
+  versionsSnap.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+
+  // Delete all chat messages for this project
+  const chatsSnap = await db.collection("chatMessages").where("projectId", "==", projectId).get();
+  chatsSnap.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+
+  // Delete all generation jobs for this project
+  const jobsSnap = await db.collection("generationJobs").where("projectId", "==", projectId).get();
+  jobsSnap.docs.forEach((doc) => {
+    batch.delete(doc.ref);
+  });
+
+  await batch.commit();
+
+  // 4. Delete Storage objects (best-effort)
   try {
-    await deleteS3Prefix(userId, projectId);
+    await deleteStoragePrefix(userId, projectId);
   } catch (err) {
-    console.error(`[delete-project] S3 cleanup failed for ${projectId}:`, err);
-    // Return success — DB records are the source of truth; S3 can be cleaned up later
+    console.error(`[delete-project] Storage cleanup failed for ${projectId}:`, err);
+    // Return success — DB records are the source of truth
   }
 
   return new NextResponse(null, { status: 204 });
