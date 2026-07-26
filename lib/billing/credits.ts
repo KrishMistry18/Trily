@@ -5,6 +5,7 @@
  * Operates purely server-side with Admin SDK bypassing security rules.
  */
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 import { db } from "@/lib/db";
 
@@ -58,7 +59,7 @@ export async function checkAndDeductCredits(
       userId,
       amount: -cost,
       type: actionType,
-      timestamp: admin.firestore.FieldValue.serverTimestamp() as any,
+      timestamp: FieldValue.serverTimestamp() as any,
     };
 
     if (relatedProjectId) {
@@ -101,7 +102,7 @@ export async function refundCredits(
       userId,
       amount,
       type: "refund" as any, // Needs to be added to types if not there
-      timestamp: admin.firestore.FieldValue.serverTimestamp() as any,
+      timestamp: FieldValue.serverTimestamp() as any,
     };
 
     if (relatedProjectId) {

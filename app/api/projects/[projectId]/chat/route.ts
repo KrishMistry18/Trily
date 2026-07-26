@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { JobStatus, JobType } from "@/types";
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 import { checkAndDeductCredits, getCreditsBalance } from "@/lib/billing/credits";
 import { db } from "@/lib/db";
@@ -94,9 +95,9 @@ export async function POST(req: NextRequest, { params }: { params: { projectId: 
     .limit(1)
     .get();
 
-  let latestVersionId = null;
+  let latestVersionId: string | undefined = undefined;
   if (!versionsSnap.empty) {
-    latestVersionId = versionsSnap.docs[0].id;
+    latestVersionId = versionsSnap.docs[0]?.id;
   }
 
   // 8. Deduct credits and insert ChatMessage + GenerationJob
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest, { params }: { params: { projectId: 
     return NextResponse.json({ error: error.message || "Insufficient credits" }, { status: 402 });
   }
 
-  const timestamp = admin.firestore.FieldValue.serverTimestamp();
+  const timestamp = FieldValue.serverTimestamp();
 
   // Create Job
   await jobRef.set({

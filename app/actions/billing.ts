@@ -19,7 +19,11 @@ async function getAuthenticatedUser() {
   if (!session?.user?.id || !session?.user?.email) {
     throw new Error("Unauthorized");
   }
-  return session.user;
+  return {
+    ...session.user,
+    id: session.user.id,
+    email: session.user.email,
+  };
 }
 
 async function getOrCreateCustomerId(

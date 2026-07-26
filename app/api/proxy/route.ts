@@ -19,8 +19,8 @@ export async function GET(req: NextRequest) {
     return new NextResponse(`Domain ${domain} is not configured or not public.`, { status: 404 });
   }
 
-  const data = snapshot.docs[0].data();
-  const currentVersionId = data.currentVersionId;
+  const data = snapshot.docs[0]?.data();
+  const currentVersionId = data?.currentVersionId;
   if (!currentVersionId) {
     return new NextResponse("No versions found.", { status: 404 });
   }

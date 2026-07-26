@@ -10,12 +10,12 @@
  *
  * Requirements: 2.2, 13.2, 13.3
  */
-
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
-import { db } from "@/lib/db";
+
 import { createPortalSession } from "@/lib/billing/stripe";
+import { db } from "@/lib/db";
 
 // ---------------------------------------------------------------------------
 // Route handler
@@ -30,10 +30,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const userId = session.user.id;
 
   // 2. Fetch user and verify stripeCustomerId is present
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: { stripeCustomerId: true },
-  });
+  const userDoc = await db.collection("users").doc(userId).get();
+  const user = userDoc.data();
 
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -42,7 +40,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!user.stripeCustomerId) {
     return NextResponse.json(
       { error: "No billing account found. Please subscribe first." },
-      { status: 400 }
+      { status: 400 },
     );
   }
 

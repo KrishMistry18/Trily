@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { GoogleGenerativeAI, HarmBlockThreshold, HarmCategory } from "@google/generative-ai";
 import { randomUUID } from "crypto";
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 import { trackEvent } from "@/lib/analytics";
 import { EDIT_COST, FULL_GENERATION_COST } from "@/lib/billing/config";
@@ -39,8 +40,8 @@ export async function generateWebsiteAction(prompt: string) {
     const userId = await getAuthenticatedUserId();
 
     // 0. Check rate limit
-    const isAllowed = await checkRateLimit(userId);
-    if (!isAllowed) {
+    const rateLimit = await checkRateLimit(userId);
+    if (!rateLimit.allowed) {
       return {
         success: false,
         error: "rate_limit_exceeded",
@@ -146,8 +147,8 @@ export async function generateWebsiteAction(prompt: string) {
       projectId,
       ownerId: userId,
       name: "Generated Project",
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
       status: "draft",
       currentVersionId: versionId,
       thumbnailUrl: "",
@@ -164,7 +165,7 @@ export async function generateWebsiteAction(prompt: string) {
       projectId,
       prompt,
       generatedCode: generatedHtml,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       createdBy: userId,
       parentVersionId: null,
     });
@@ -189,8 +190,8 @@ export async function editWebsiteAction(
     const userId = await getAuthenticatedUserId();
 
     // 0. Check rate limit
-    const isAllowed = await checkRateLimit(userId);
-    if (!isAllowed) {
+    const rateLimit = await checkRateLimit(userId);
+    if (!rateLimit.allowed) {
       return {
         success: false,
         error: "rate_limit_exceeded",
@@ -307,7 +308,7 @@ export async function editWebsiteAction(
       projectId,
       prompt,
       generatedCode: generatedHtml,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       createdBy: userId,
       parentVersionId: currentVersionId,
     });
@@ -316,7 +317,7 @@ export async function editWebsiteAction(
     const projectRef = db.collection("projects").doc(projectId);
     batch.update(projectRef, {
       currentVersionId: newVersionId,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     });
 
     await batch.commit();

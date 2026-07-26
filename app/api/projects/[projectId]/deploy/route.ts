@@ -29,46 +29,49 @@ export async function POST(_req: NextRequest, { params }: { params: { projectId:
   const { projectId } = params;
 
   // 2. Verify project ownership
-  const project = await db.project.findUnique({
-    where: { id: projectId },
-    select: { userId: true, name: true },
-  });
+  const projectDoc = await db.collection("projects").doc(projectId).get();
 
-  if (!project) {
+  if (!projectDoc.exists) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (project.userId !== userId) {
+  const project = projectDoc.data();
+  if (project?.ownerId !== userId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // 3. Fetch latest version
-  const latestVersion = await db.version.findFirst({
-    where: { projectId },
-    orderBy: { versionNumber: "desc" },
-    select: { id: true, storageKey: true },
-  });
+  const versionsSnap = await db
+    .collection("versions")
+    .where("projectId", "==", projectId)
+    .orderBy("createdAt", "desc")
+    .limit(1)
+    .get();
 
-  if (!latestVersion) {
+  if (versionsSnap.empty) {
+    return NextResponse.json({ error: "No versions found for this project" }, { status: 404 });
+  }
+
+  const latestVersionDoc = versionsSnap.docs[0];
+  if (!latestVersionDoc) {
     return NextResponse.json({ error: "No versions found for this project" }, { status: 404 });
   }
 
   // 4. Fetch HTML from S3
-  const codeFiles = await storageService.readVersionFiles(userId, projectId, latestVersion.id);
+  const codeFiles = await storageService.readVersionFiles(userId, projectId, latestVersionDoc.id);
 
   // 5. Deploy to Vercel (Req 11.1)
   try {
     const projectName = `trily-${projectId}`;
-    const { deployUrl } = await deployToVercel(projectName, codeFiles, latestVersion.id);
+    const { deployUrl } = await deployToVercel(projectName, codeFiles, latestVersionDoc.id);
 
     // 6. On success: UPDATE Version.deployUrl (Req 11.2)
-    await db.version.update({
-      where: { id: latestVersion.id },
-      data: { deployUrl },
+    await db.collection("versions").doc(latestVersionDoc.id).update({
+      deployUrl,
     });
 
     // NOTE: CreditLedger is intentionally NOT modified (Req 11.4)
-    return NextResponse.json({ deployUrl, versionId: latestVersion.id });
+    return NextResponse.json({ deployUrl, versionId: latestVersionDoc.id });
   } catch (err) {
     // 7. On error: return 502 and do NOT modify the Version record (Req 11.3)
     const message = err instanceof Error ? err.message : "Vercel deployment failed";

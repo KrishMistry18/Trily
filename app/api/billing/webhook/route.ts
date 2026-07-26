@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import * as admin from "firebase-admin";
+import { FieldValue, Transaction } from "firebase-admin/firestore";
 import Stripe from "stripe";
 
 import { SUBSCRIPTION_TIERS } from "@/lib/billing/config";
@@ -14,13 +15,12 @@ export const runtime = "nodejs";
 async function findUserIdByStripeCustomer(customerId: string): Promise<string | null> {
   const snapshot = await db.collection("users").where("stripeCustomerId", "==", customerId).get();
   if (snapshot.empty) return null;
-  return snapshot.docs[0].id;
+  const doc = snapshot.docs[0];
+  if (!doc) return null;
+  return doc.id;
 }
 
-async function handleCheckoutCompleted(
-  session: Stripe.Checkout.Session,
-  tx: admin.firestore.Transaction,
-) {
+async function handleCheckoutCompleted(session: Stripe.Checkout.Session, tx: Transaction) {
   const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id;
   if (!customerId) return;
 
@@ -49,7 +49,7 @@ async function handleCheckoutCompleted(
       userId: userId,
       amount: credits,
       type: "purchase",
-      timestamp: admin.firestore.FieldValue.serverTimestamp() as any,
+      timestamp: FieldValue.serverTimestamp() as any,
     };
     tx.set(txRef, txData);
   } else if (metadata.type === "subscription") {
@@ -65,10 +65,7 @@ async function handleCheckoutCompleted(
   }
 }
 
-async function handleSubscriptionUpdated(
-  subscription: Stripe.Subscription,
-  tx: admin.firestore.Transaction,
-) {
+async function handleSubscriptionUpdated(subscription: Stripe.Subscription, tx: Transaction) {
   const customerId =
     typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
 
@@ -93,10 +90,7 @@ async function handleSubscriptionUpdated(
   });
 }
 
-async function handleSubscriptionDeleted(
-  subscription: Stripe.Subscription,
-  tx: admin.firestore.Transaction,
-) {
+async function handleSubscriptionDeleted(subscription: Stripe.Subscription, tx: Transaction) {
   const customerId =
     typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
 
@@ -135,7 +129,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       tx.set(eventRef, {
         id: event.id,
         type: event.type,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       });
 
       switch (event.type) {

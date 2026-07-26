@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { randomUUID } from "crypto";
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 import { db } from "@/lib/db";
 
@@ -51,7 +52,7 @@ export async function renameProjectAction(projectId: string, newName: string) {
 
   await projectRef.update({
     name: newName,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
   return { success: true };
 }
@@ -67,8 +68,8 @@ export async function deleteProjectAction(projectId: string) {
   }
 
   await projectRef.update({
-    deletedAt: admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    deletedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
   return { success: true };
 }
@@ -102,8 +103,8 @@ export async function duplicateProjectAction(projectId: string) {
     projectId: newProjectId,
     ownerId: session.user.id,
     name: `${originalProject.name} (Copy)`,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
     status: "draft",
     currentVersionId: newVersionId,
     thumbnailUrl: originalProject.thumbnailUrl || "",
@@ -115,7 +116,7 @@ export async function duplicateProjectAction(projectId: string) {
     projectId: newProjectId,
     prompt: "Duplicated from another project",
     generatedCode: currentCode,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
     createdBy: session.user.id,
     parentVersionId: null,
   });

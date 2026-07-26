@@ -11,17 +11,15 @@
  *
  * Requirements: 10.1, 10.2, 10.3, 10.4
  */
-
-import { auth } from "@/auth";
-import { db } from "@/lib/db";
-import { storageService } from "@/lib/storage";
-import JSZip from "jszip";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function POST(
-  _req: NextRequest,
-  { params }: { params: { projectId: string } }
-) {
+import { auth } from "@/auth";
+import JSZip from "jszip";
+
+import { db } from "@/lib/db";
+import { storageService } from "@/lib/storage";
+
+export async function POST(_req: NextRequest, { params }: { params: { projectId: string } }) {
   // 1. Authenticate
   const session = await auth();
   if (!session?.user?.id) {
@@ -31,39 +29,36 @@ export async function POST(
   const { projectId } = params;
 
   // 2. Verify project ownership
-  const project = await db.project.findUnique({
-    where: { id: projectId },
-    select: { userId: true },
-  });
+  const projectDoc = await db.collection("projects").doc(projectId).get();
 
-  if (!project) {
+  if (!projectDoc.exists) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  if (project.userId !== userId) {
+  const project = projectDoc.data();
+  if (project?.ownerId !== userId) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // 3. Fetch the latest version
-  const latestVersion = await db.version.findFirst({
-    where: { projectId },
-    orderBy: { versionNumber: "desc" },
-    select: { id: true, storageKey: true },
-  });
+  const versionsSnap = await db
+    .collection("versions")
+    .where("projectId", "==", projectId)
+    .orderBy("createdAt", "desc")
+    .limit(1)
+    .get();
 
-  if (!latestVersion) {
-    return NextResponse.json(
-      { error: "No versions found for this project" },
-      { status: 404 }
-    );
+  if (versionsSnap.empty) {
+    return NextResponse.json({ error: "No versions found for this project" }, { status: 404 });
+  }
+
+  const latestVersionDoc = versionsSnap.docs[0];
+  if (!latestVersionDoc) {
+    return NextResponse.json({ error: "No versions found for this project" }, { status: 404 });
   }
 
   // 4. Read HTML from S3
-  const codeFiles = await storageService.readVersionFiles(
-    userId,
-    projectId,
-    latestVersion.id
-  );
+  const codeFiles = await storageService.readVersionFiles(userId, projectId, latestVersionDoc.id);
 
   // 5. Create ZIP archive with JSZip (Req 10.1, 10.2)
   const zip = new JSZip();
@@ -74,8 +69,8 @@ export async function POST(
   const zipKey = await storageService.writeZipArchive(
     userId,
     projectId,
-    latestVersion.id,
-    zipBuffer
+    latestVersionDoc.id,
+    zipBuffer,
   );
 
   // 7. Generate pre-signed URL (3600s expiry) (Req 10.3)

@@ -2,6 +2,7 @@
 
 import { auth } from "@/auth";
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 import { db } from "@/lib/db";
 
@@ -23,7 +24,7 @@ export async function togglePublishAction(projectId: string, isPublic: boolean) 
 
   await projectRef.update({
     isPublic,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 
   return { success: true };
@@ -55,14 +56,14 @@ export async function updateCustomDomainAction(projectId: string, customDomain: 
       .collection("projects")
       .where("customDomain", "==", cleanedDomain)
       .get();
-    if (!existing.empty && existing.docs[0].id !== projectId) {
+    if (!existing.empty && existing.docs[0]?.id !== projectId) {
       return { success: false, error: "domain_in_use" };
     }
   }
 
   await projectRef.update({
-    customDomain: cleanedDomain || admin.firestore.FieldValue.delete(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    customDomain: cleanedDomain || FieldValue.delete(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 
   return { success: true, cleanedDomain };

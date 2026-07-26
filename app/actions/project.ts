@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { randomUUID } from "crypto";
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 import { db } from "@/lib/db";
 
@@ -91,7 +92,7 @@ export async function restoreVersionAction(
     projectId,
     prompt: `Restored previous version`,
     generatedCode: oldCode,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
     createdBy: session.user.id,
     parentVersionId: currentVersionId,
   });
@@ -100,7 +101,7 @@ export async function restoreVersionAction(
   const projectRef = db.collection("projects").doc(projectId);
   batch.update(projectRef, {
     currentVersionId: newVersionId,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 
   await batch.commit();

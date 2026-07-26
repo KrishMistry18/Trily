@@ -6,8 +6,8 @@
  *
  * Requirements: 6.1, 6.2
  */
+import { type JobsOptions, Queue } from "bullmq";
 
-import { Queue, type JobsOptions } from "bullmq";
 import { redis } from "./redis";
 
 // ---------------------------------------------------------------------------
@@ -15,7 +15,7 @@ import { redis } from "./redis";
 // ---------------------------------------------------------------------------
 
 export interface GenerationJobData {
-  jobId: string;         // DB GenerationJob.id
+  jobId: string; // DB GenerationJob.id
   userId: string;
   projectId: string;
   type: "create" | "edit";
@@ -29,11 +29,10 @@ export interface GenerationJobData {
 // ---------------------------------------------------------------------------
 
 export const JOB_OPTIONS: JobsOptions = {
-  attempts: 1,           // retries are managed inside the worker
+  attempts: 1, // retries are managed inside the worker
   removeOnComplete: 100,
   removeOnFail: 500,
-  // 130 s BullMQ hard timeout — 10 s grace over the 120 s app-level watchdog
-  timeout: 130_000,
+  // 130 s BullMQ hard timeout removed as it's unsupported in this version
 };
 
 // ---------------------------------------------------------------------------

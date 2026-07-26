@@ -7,8 +7,8 @@
  *
  * Requirements: 4.5, 5.5, 14.5, 18.5
  */
-
 import { db } from "@/lib/db";
+
 import type { LogTokenUsageParams } from "./types";
 
 /**
@@ -32,16 +32,16 @@ export async function logTokenUsage(params: LogTokenUsageParams) {
     generationJobId,
   } = params;
 
-  return db.tokenLog.create({
-    data: {
-      userId,
-      provider,
-      modelName,
-      promptTokens,
-      completionTokens,
-      estimatedCostUsd,
-      callType,
-      generationJobId: generationJobId ?? null,
-    },
+  const tokenLogRef = db.collection("tokenLogs").doc();
+  await tokenLogRef.set({
+    userId,
+    provider,
+    modelName,
+    promptTokens,
+    completionTokens,
+    estimatedCostUsd,
+    callType,
+    generationJobId: generationJobId ?? null,
   });
+  return { id: tokenLogRef.id };
 }

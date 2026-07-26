@@ -6,25 +6,21 @@
  *
  * Requirements: 9.1, 9.2, 9.3, 9.4
  */
+import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
+import { FieldValue } from "firebase-admin/firestore";
+
 import { db } from "@/lib/db";
 import { storageService } from "@/lib/storage";
-import { NextRequest, NextResponse } from "next/server";
 
 // ---------------------------------------------------------------------------
 // Helper: verify project ownership
 // ---------------------------------------------------------------------------
 
-async function verifyOwnership(
-  projectId: string,
-  userId: string
-): Promise<boolean> {
-  const project = await db.project.findUnique({
-    where: { id: projectId },
-    select: { userId: true },
-  });
-  return project?.userId === userId;
+async function verifyOwnership(projectId: string, userId: string): Promise<boolean> {
+  const projectDoc = await db.collection("projects").doc(projectId).get();
+  return projectDoc.exists && projectDoc.data()?.ownerId === userId;
 }
 
 // ---------------------------------------------------------------------------
@@ -33,7 +29,7 @@ async function verifyOwnership(
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { projectId: string; versionId: string } }
+  { params }: { params: { projectId: string; versionId: string } },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -46,19 +42,10 @@ export async function GET(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const version = await db.version.findFirst({
-    where: { id: versionId, projectId },
-    select: {
-      id: true,
-      versionNumber: true,
-      prompt: true,
-      storageKey: true,
-      deployUrl: true,
-      createdAt: true,
-    },
-  });
+  const versionDoc = await db.collection("versions").doc(versionId).get();
+  const version = versionDoc.data();
 
-  if (!version) {
+  if (!version || version.projectId !== projectId) {
     return NextResponse.json({ error: "Version not found" }, { status: 404 });
   }
 
@@ -73,7 +60,7 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { projectId: string; versionId: string } }
+  { params }: { params: { projectId: string; versionId: string } },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -99,12 +86,10 @@ export async function POST(
   }
 
   // Fetch source version
-  const sourceVersion = await db.version.findFirst({
-    where: { id: versionId, projectId },
-    select: { id: true, storageKey: true, prompt: true },
-  });
+  const sourceVersionDoc = await db.collection("versions").doc(versionId).get();
+  const sourceVersion = sourceVersionDoc.data();
 
-  if (!sourceVersion) {
+  if (!sourceVersion || sourceVersion.projectId !== projectId) {
     return NextResponse.json({ error: "Version not found" }, { status: 404 });
   }
 
@@ -114,36 +99,35 @@ export async function POST(
   // Determine new version number (MAX + 1) within a transaction
   const newVersionId = crypto.randomUUID();
 
-  const newVersion = await db.$transaction(async (tx) => {
-    const last = await tx.version.findFirst({
-      where: { projectId },
-      orderBy: { versionNumber: "desc" },
-      select: { versionNumber: true },
-    });
-    const newVersionNumber = (last?.versionNumber ?? 0) + 1;
+  const newVersionData: any = {
+    id: newVersionId,
+    projectId,
+    prompt: sourceVersion.prompt,
+    storageKey: `${userId}/${projectId}/${newVersionId}/index.html`,
+    createdAt: FieldValue.serverTimestamp(),
+  };
+
+  await db.runTransaction(async (tx) => {
+    const versionsSnap = await tx.get(
+      db
+        .collection("versions")
+        .where("projectId", "==", projectId)
+        .orderBy("versionNumber", "desc")
+        .limit(1),
+    );
+    const lastVersion = versionsSnap.empty ? null : versionsSnap.docs[0]?.data();
+    newVersionData.versionNumber = (lastVersion?.versionNumber ?? 0) + 1;
 
     // Write new S3 object (identical HTML under new versionId path)
-    const newStorageKey = `${userId}/${projectId}/${newVersionId}/index.html`;
     await storageService.writeVersionFiles(userId, projectId, newVersionId, codeFiles);
 
-    const v = await tx.version.create({
-      data: {
-        id: newVersionId,
-        projectId,
-        versionNumber: newVersionNumber,
-        prompt: sourceVersion.prompt,
-        storageKey: newStorageKey,
-      },
-    });
+    tx.set(db.collection("versions").doc(newVersionId), newVersionData);
 
     // Touch project updatedAt
-    await tx.project.update({
-      where: { id: projectId },
-      data: { updatedAt: new Date() },
+    tx.update(db.collection("projects").doc(projectId), {
+      updatedAt: FieldValue.serverTimestamp(),
     });
-
-    return v;
   });
 
-  return NextResponse.json(newVersion, { status: 201 });
+  return NextResponse.json(newVersionData, { status: 201 });
 }

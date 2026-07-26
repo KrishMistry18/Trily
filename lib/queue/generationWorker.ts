@@ -25,18 +25,31 @@
  *
  * Requirements: 6.1, 6.2, 6.6
  */
+import { type Job, Worker } from "bullmq";
+import { FieldValue } from "firebase-admin/firestore";
 
-import { Worker, type Job } from "bullmq";
-import { redis } from "./redis";
-import type { GenerationJobData } from "./generationQueue";
-import { db } from "@/lib/db";
-import { generateSpec } from "@/lib/ai/spec-generator";
 import { generateCode } from "@/lib/ai/code-generator";
 import { generateEditedCode } from "@/lib/ai/edit-generator";
 import { generateHeroImage } from "@/lib/ai/image-generator";
-import { storageService } from "@/lib/storage";
+import { generateSpec } from "@/lib/ai/spec-generator";
 import { refundCredits } from "@/lib/billing/credits";
-import { JobStatus, JobType } from "@prisma/client";
+import { db } from "@/lib/db";
+import { storageService } from "@/lib/storage";
+
+import type { GenerationJobData } from "./generationQueue";
+import { redis } from "./redis";
+
+export enum JobStatus {
+  PENDING = "PENDING",
+  PROCESSING = "PROCESSING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+}
+
+export enum JobType {
+  CREATE = "CREATE",
+  EDIT = "EDIT",
+}
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -48,10 +61,7 @@ export const WORKER_TIMEOUT_MS = 120_000; // 120 seconds
 // SSE pub/sub helpers
 // ---------------------------------------------------------------------------
 
-async function publishJobEvent(
-  jobId: string,
-  payload: Record<string, unknown>
-): Promise<void> {
+async function publishJobEvent(jobId: string, payload: Record<string, unknown>): Promise<void> {
   try {
     await redis.publish(`job:${jobId}`, JSON.stringify({ jobId, ...payload }));
   } catch {
@@ -71,9 +81,8 @@ async function processJob(job: Job<GenerationJobData>): Promise<void> {
   const startedAt = Date.now();
 
   // 1. Mark PROCESSING
-  await db.generationJob.update({
-    where: { id: jobId },
-    data: { status: JobStatus.PROCESSING },
+  await db.collection("generationJobs").doc(jobId).update({
+    status: JobStatus.PROCESSING,
   });
   await publishJobEvent(jobId, { status: "processing", step: type === "edit" ? "edit" : "spec" });
 
@@ -87,16 +96,18 @@ async function processJob(job: Job<GenerationJobData>): Promise<void> {
   // ---------------------------------------------------------------------------
   // CREATE pipeline
   // ---------------------------------------------------------------------------
-  if (type === JobType.CREATE || type === "create") {
+  if (type === "create") {
     // Spec generation
     checkTimeout();
     const siteSpec = await generateSpec(prompt, jobId, userId);
 
     // Persist SiteSpec
-    await db.project.update({
-      where: { id: projectId },
-      data: { siteSpec: siteSpec as object },
-    });
+    await db
+      .collection("projects")
+      .doc(projectId)
+      .update({
+        siteSpec: siteSpec as object,
+      });
 
     await publishJobEvent(jobId, { status: "processing", step: "code" });
 
@@ -123,64 +134,63 @@ async function processJob(job: Job<GenerationJobData>): Promise<void> {
 
     checkTimeout();
 
-    // Get the next version number
-    const lastVersion = await db.version.findFirst({
-      where: { projectId },
-      orderBy: { versionNumber: "desc" },
-      select: { versionNumber: true },
-    });
-    const versionNumber = (lastVersion?.versionNumber ?? 0) + 1;
-
     // Write HTML to S3
     const versionId = crypto.randomUUID();
     const storageKey = `${userId}/${projectId}/${versionId}/index.html`;
     await storageService.writeVersionFiles(userId, projectId, versionId, codeFiles);
 
     // INSERT Version and update GenerationJob in a transaction
-    const version = await db.$transaction(async (tx) => {
-      const v = await tx.version.create({
-        data: {
-          id: versionId,
-          projectId,
-          versionNumber,
-          prompt,
-          storageKey,
-        },
+    await db.runTransaction(async (tx) => {
+      // Get the next version number
+      const versionsSnap = await tx.get(
+        db
+          .collection("versions")
+          .where("projectId", "==", projectId)
+          .orderBy("versionNumber", "desc")
+          .limit(1),
+      );
+      const lastVersion = versionsSnap.empty ? null : versionsSnap.docs[0]?.data();
+      const versionNumber = (lastVersion?.versionNumber ?? 0) + 1;
+
+      const vRef = db.collection("versions").doc(versionId);
+      tx.set(vRef, {
+        id: versionId,
+        projectId,
+        versionNumber,
+        prompt,
+        storageKey,
+        createdAt: FieldValue.serverTimestamp(),
       });
-      await tx.generationJob.update({
-        where: { id: jobId },
-        data: { status: JobStatus.COMPLETED },
+
+      tx.update(db.collection("generationJobs").doc(jobId), {
+        status: JobStatus.COMPLETED,
       });
-      await tx.project.update({
-        where: { id: projectId },
-        data: { updatedAt: new Date() },
+
+      tx.update(db.collection("projects").doc(projectId), {
+        updatedAt: FieldValue.serverTimestamp(),
       });
-      return v;
     });
 
-    await publishJobEvent(jobId, { status: "completed", versionId: version.id });
+    await publishJobEvent(jobId, { status: "completed", versionId });
     return;
   }
 
   // ---------------------------------------------------------------------------
   // EDIT pipeline
   // ---------------------------------------------------------------------------
-  if (type === JobType.EDIT || type === "edit") {
+  if (type === "edit") {
     checkTimeout();
 
     // Fetch current HTML from S3
     if (!currentVersionId) throw new Error("currentVersionId is required for edit jobs");
 
-    const currentVersion = await db.version.findUnique({
-      where: { id: currentVersionId },
-      select: { storageKey: true, projectId: true },
-    });
-    if (!currentVersion) throw new Error(`Version ${currentVersionId} not found`);
+    const currentVersionDoc = await db.collection("versions").doc(currentVersionId).get();
+    if (!currentVersionDoc.exists) throw new Error(`Version ${currentVersionId} not found`);
 
     const currentCodeFiles = await storageService.readVersionFiles(
       userId,
       projectId,
-      currentVersionId
+      currentVersionId,
     );
 
     // Generate edited code
@@ -190,49 +200,50 @@ async function processJob(job: Job<GenerationJobData>): Promise<void> {
 
     checkTimeout();
 
-    // Get next version number
-    const lastVersion = await db.version.findFirst({
-      where: { projectId },
-      orderBy: { versionNumber: "desc" },
-      select: { versionNumber: true },
-    });
-    const versionNumber = (lastVersion?.versionNumber ?? 0) + 1;
-
     // Write new HTML to S3
     const versionId = crypto.randomUUID();
     const storageKey = `${userId}/${projectId}/${versionId}/index.html`;
     await storageService.writeVersionFiles(userId, projectId, versionId, editedCode);
 
     // INSERT Version, update job, update ChatMessage in a transaction
-    const version = await db.$transaction(async (tx) => {
-      const v = await tx.version.create({
-        data: {
-          id: versionId,
-          projectId,
-          versionNumber,
-          prompt,
-          storageKey,
-        },
+    await db.runTransaction(async (tx) => {
+      // Get next version number
+      const versionsSnap = await tx.get(
+        db
+          .collection("versions")
+          .where("projectId", "==", projectId)
+          .orderBy("versionNumber", "desc")
+          .limit(1),
+      );
+      const lastVersion = versionsSnap.empty ? null : versionsSnap.docs[0]?.data();
+      const versionNumber = (lastVersion?.versionNumber ?? 0) + 1;
+
+      const vRef = db.collection("versions").doc(versionId);
+      tx.set(vRef, {
+        id: versionId,
+        projectId,
+        versionNumber,
+        prompt,
+        storageKey,
+        createdAt: FieldValue.serverTimestamp(),
       });
-      await tx.generationJob.update({
-        where: { id: jobId },
-        data: { status: JobStatus.COMPLETED },
+
+      tx.update(db.collection("generationJobs").doc(jobId), {
+        status: JobStatus.COMPLETED,
       });
+
       // Update associated ChatMessage if one references this job
-      await tx.chatMessage
-        .updateMany({
-          where: { jobId },
-          data: { status: "APPLIED" },
-        })
-        .catch(() => {/* no chat message — that's fine */});
-      await tx.project.update({
-        where: { id: projectId },
-        data: { updatedAt: new Date() },
+      const chatsSnap = await tx.get(db.collection("chatMessages").where("jobId", "==", jobId));
+      chatsSnap.docs.forEach((doc) => {
+        tx.update(doc.ref, { status: "APPLIED" });
       });
-      return v;
+
+      tx.update(db.collection("projects").doc(projectId), {
+        updatedAt: FieldValue.serverTimestamp(),
+      });
     });
 
-    await publishJobEvent(jobId, { status: "completed", versionId: version.id });
+    await publishJobEvent(jobId, { status: "completed", versionId });
   }
 }
 
@@ -240,44 +251,41 @@ async function processJob(job: Job<GenerationJobData>): Promise<void> {
 // FAILED handler
 // ---------------------------------------------------------------------------
 
-async function handleJobFailed(
-  job: Job<GenerationJobData> | undefined,
-  err: Error
-): Promise<void> {
+async function handleJobFailed(job: Job<GenerationJobData> | undefined, err: Error): Promise<void> {
   if (!job) return;
 
   const { jobId, userId } = job.data;
   const failureReason = err.message ?? "Unknown error";
 
   try {
-    // Fetch the deducted credits for this job
-    const generationJob = await db.generationJob.findUnique({
-      where: { id: jobId },
-      select: { creditsDeducted: true, status: true },
-    });
+    const jobDoc = await db.collection("generationJobs").doc(jobId).get();
+    const generationJob = jobDoc.data();
 
     if (!generationJob || generationJob.status === JobStatus.COMPLETED) return;
 
-    await db.$transaction(async (tx) => {
-      // Mark job as FAILED
-      await tx.generationJob.update({
-        where: { id: jobId },
-        data: { status: JobStatus.FAILED, failureReason },
+    await db.runTransaction(async (tx) => {
+      tx.update(jobDoc.ref, {
+        status: JobStatus.FAILED,
+        failureReason,
       });
 
-      // Restore credits
-      if (generationJob.creditsDeducted > 0) {
-        await refundCredits(userId, generationJob.creditsDeducted, jobId, tx);
-      }
-
       // Update associated ChatMessage to FAILED
-      await tx.chatMessage
-        .updateMany({
-          where: { jobId },
-          data: { status: "FAILED" },
-        })
-        .catch(() => {/* ignore */});
+      const chatsSnap = await tx.get(db.collection("chatMessages").where("jobId", "==", jobId));
+      chatsSnap.docs.forEach((doc) => {
+        tx.update(doc.ref, { status: "FAILED" });
+      });
     });
+
+    // Restore credits (needs to be outside the tx because it uses its own tx inside refundCredits if we implemented it, or we just call it)
+    if (generationJob.creditsDeducted > 0) {
+      const actionType = job.data.type === "edit" ? "edit" : "generation";
+      await refundCredits(
+        userId,
+        generationJob.creditsDeducted,
+        actionType,
+        generationJob.projectId || job.data.projectId,
+      );
+    }
 
     await publishJobEvent(jobId, { status: "failed", error: failureReason });
   } catch (handlerErr) {
@@ -291,14 +299,10 @@ async function handleJobFailed(
 
 const concurrency = parseInt(process.env.WORKER_CONCURRENCY ?? "3", 10);
 
-export const generationWorker = new Worker<GenerationJobData>(
-  "generation",
-  processJob,
-  {
-    connection: redis,
-    concurrency,
-  }
-);
+export const generationWorker = new Worker<GenerationJobData>("generation", processJob, {
+  connection: redis,
+  concurrency,
+});
 
 generationWorker.on("failed", (job, err) => {
   handleJobFailed(job, err as Error).catch(console.error);

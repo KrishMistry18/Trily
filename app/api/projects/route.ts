@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { JobStatus, JobType } from "@/types";
 import * as admin from "firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 import { checkAndDeductCredits, getCreditsBalance } from "@/lib/billing/credits";
 import { db } from "@/lib/db";
@@ -94,8 +95,8 @@ export async function POST(req: NextRequest) {
     status: "draft",
     currentVersionId: "",
     thumbnailUrl: "",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 
   // Create generation job (PENDING)
@@ -106,8 +107,8 @@ export async function POST(req: NextRequest) {
     type: JobType.CREATE,
     status: JobStatus.PENDING,
     prompt: validPrompt,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
   });
 
   const projectId = projectRef.id;
@@ -158,12 +159,14 @@ export async function GET(req: NextRequest) {
 
     let latestVersion = null;
     if (!versionsSnap.empty) {
-      const v = versionsSnap.docs[0].data();
-      latestVersion = {
-        versionId: v.versionId,
-        projectId: v.projectId,
-        createdAt: v.createdAt,
-      };
+      const v = versionsSnap.docs[0]?.data();
+      if (v) {
+        latestVersion = {
+          versionId: v.versionId,
+          projectId: v.projectId,
+          createdAt: v.createdAt,
+        };
+      }
     }
 
     projects.push({

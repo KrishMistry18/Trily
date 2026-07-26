@@ -17,7 +17,7 @@ if (typeof window !== "undefined") {
  * The `apiVersion` is pinned so upgrades are explicit.
  */
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
-  apiVersion: "2025-01-27.acacia",
+  apiVersion: "2024-06-20",
   typescript: true,
 });
 
@@ -81,8 +81,9 @@ export async function createPortalSession(customerId: string, returnUrl: string)
  */
 export async function upsertStripeCustomer(email: string, name?: string): Promise<string> {
   const existing = await stripe.customers.list({ email, limit: 1 });
-  if (existing.data.length > 0) {
-    return existing.data[0].id;
+  const existingCustomer = existing.data[0];
+  if (existingCustomer) {
+    return existingCustomer.id;
   }
   const customer = await stripe.customers.create({ email, name });
   return customer.id;

@@ -12,11 +12,14 @@
  * All credentials and URL-signing happen server-side only.
  * Requirements: 17.1, 17.2, 17.3, 17.4
  */
+// ---------------------------------------------------------------------------
+// Implementation
+// ---------------------------------------------------------------------------
+import { getStorage } from "firebase-admin/storage";
+
 import { firebaseAdminApp } from "../db";
 
-// ---------------------------------------------------------------------------
 // Types
-// ---------------------------------------------------------------------------
 
 export interface CodeFiles {
   html: string;
@@ -73,13 +76,13 @@ export function imageKey(userId: string, projectId: string, filename: string): s
 export const MIN_PRESIGNED_EXPIRY_SECONDS = 3600;
 
 // ---------------------------------------------------------------------------
-// Implementation
+
 // ---------------------------------------------------------------------------
 
 const bucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? "";
 
 function getBucket() {
-  return firebaseAdminApp.storage().bucket(bucketName);
+  return getStorage(firebaseAdminApp).bucket(bucketName);
 }
 
 /**

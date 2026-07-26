@@ -13,14 +13,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 // Using standard firebase-admin if initialized
 import * as admin from "firebase-admin";
+import { getStorage } from "firebase-admin/storage";
 
 import { db } from "@/lib/db";
-import { storage } from "@/lib/firebase";
 
 /** Deletes all Firebase Storage objects under a given prefix. */
 async function deleteStoragePrefix(userId: string, projectId: string): Promise<void> {
   const prefix = `${userId}/${projectId}/`;
-  const bucket = admin.storage().bucket();
+  const bucket = getStorage().bucket();
 
   await bucket.deleteFiles({ prefix });
 }

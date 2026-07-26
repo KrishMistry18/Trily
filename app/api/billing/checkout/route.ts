@@ -11,16 +11,13 @@
  *
  * Requirements: 2.2, 13.2, 13.3
  */
-
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 
 import { auth } from "@/auth";
+import { z } from "zod";
+
+import { createCheckoutSession, upsertStripeCustomer } from "@/lib/billing/stripe";
 import { db } from "@/lib/db";
-import {
-  createCheckoutSession,
-  upsertStripeCustomer,
-} from "@/lib/billing/stripe";
 
 // ---------------------------------------------------------------------------
 // Request schema
@@ -55,16 +52,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!parsed.success) {
     return NextResponse.json(
       { error: "Invalid request body", details: parsed.error.flatten() },
-      { status: 400 }
+      { status: 400 },
     );
   }
   const { priceId, mode } = parsed.data;
 
   // 3. Fetch user and upsert Stripe customer if needed
-  const user = await db.user.findUnique({
-    where: { id: userId },
-    select: { id: true, email: true, name: true, stripeCustomerId: true },
-  });
+  const userDoc = await db.collection("users").doc(userId).get();
+  const user = userDoc.data();
 
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -73,14 +68,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   let customerId = user.stripeCustomerId;
 
   if (!customerId) {
-    customerId = await upsertStripeCustomer(
-      user.email ?? "",
-      user.name ?? undefined
-    );
-    await db.user.update({
-      where: { id: userId },
-      data: { stripeCustomerId: customerId },
-    });
+    customerId = await upsertStripeCustomer(user.email ?? "", user.name ?? undefined);
+    await db.collection("users").doc(userId).update({ stripeCustomerId: customerId });
   }
 
   // 4. Build success / cancel URLs
@@ -89,13 +78,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const cancelUrl = `${origin}/account?cancelled=true`;
 
   // 5. Create Stripe Checkout session
-  const checkoutUrl = await createCheckoutSession(
-    customerId,
-    priceId,
-    mode,
-    successUrl,
-    cancelUrl
-  );
+  const checkoutUrl = await createCheckoutSession(customerId, priceId, mode, successUrl, cancelUrl);
 
   // 6. Return the URL
   return NextResponse.json({ url: checkoutUrl });

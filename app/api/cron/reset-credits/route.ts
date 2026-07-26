@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import * as admin from "firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 
 import { SUBSCRIPTION_TIERS } from "@/lib/billing/config";
 import { db } from "@/lib/db";
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     // Find all users whose creditsResetDate has passed
     const usersSnapshot = await db
       .collection("users")
-      .where("creditsResetDate", "<=", admin.firestore.Timestamp.fromDate(now))
+      .where("creditsResetDate", "<=", Timestamp.fromDate(now))
       .get();
 
     if (usersSnapshot.empty) {
@@ -41,7 +41,7 @@ export async function GET(request: Request) {
 
       batch.update(doc.ref, {
         creditsBalance: monthlyCredits,
-        creditsResetDate: admin.firestore.Timestamp.fromDate(nextReset),
+        creditsResetDate: Timestamp.fromDate(nextReset),
       });
     });
 
