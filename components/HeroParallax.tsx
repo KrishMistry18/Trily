@@ -62,12 +62,12 @@ export function HeroParallax() {
         </div>
 
         {/* Iframe Placeholder */}
-        <div className="flex-1 relative overflow-hidden bg-white">
+        <div className="flex-1 relative overflow-hidden bg-white @container">
           {/* Loading shimmer */}
           {!iframeLoaded && <div className="absolute inset-0 bg-slate-100 animate-pulse z-0" />}
 
           {isMounted && (
-            <div className="absolute inset-0 w-[200%] h-[200%] origin-top-left scale-[0.5] z-10">
+            <div className="absolute top-0 left-0 w-[1440px] h-[900px] origin-top-left [transform:scale(calc(100cqi/1440))] z-10">
               <iframe
                 srcDoc="
                   <html>
@@ -95,7 +95,7 @@ export function HeroParallax() {
                     </body>
                   </html>
                 "
-                className={`w-full h-full border-0 bg-transparent transition-opacity duration-500 pointer-events-none ${iframeLoaded ? "opacity-100" : "opacity-0"}`}
+                className={`w-full h-full border-0 bg-transparent transition-opacity duration-500 ${iframeLoaded ? "opacity-100" : "opacity-0"}`}
                 sandbox="allow-scripts"
                 onLoad={() => setIframeLoaded(true)}
               />

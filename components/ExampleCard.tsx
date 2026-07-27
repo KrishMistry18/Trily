@@ -13,13 +13,13 @@ export function ExampleCard({ example }: { example: OfficialExample }) {
   return (
     <div className="group flex flex-col rounded-2xl bg-white/5 border border-white/10 overflow-hidden hover:border-white/20 transition-colors shadow-sm">
       {/* Interactive Thumbnail */}
-      <div className="relative aspect-[16/10] bg-black overflow-hidden border-b border-white/10">
+      <div className="relative aspect-[16/10] @container bg-black overflow-hidden border-b border-white/10">
         <div className="absolute top-4 left-4 z-10 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-xs font-semibold text-white/90">
           {example.industryTag}
         </div>
 
         {/* Iframe wrapper for scaling */}
-        <div className="absolute inset-0 w-[400%] h-[400%] origin-top-left scale-[0.25] transition-transform duration-700 ease-out group-hover:scale-[0.26]">
+        <div className="absolute top-0 left-0 w-[1440px] h-[900px] origin-top-left [transform:scale(calc(100cqi/1440))] transition-transform duration-700 ease-out group-hover:[transform:scale(calc(104cqi/1440))]">
           {/* Loading shimmer */}
           {!iframeLoaded && <div className="absolute inset-0 bg-slate-100 animate-pulse z-0" />}
           <iframe

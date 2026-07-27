@@ -2,7 +2,7 @@
 
 import React from "react";
 
-import { Variants, motion, useReducedMotion } from "framer-motion";
+import { LazyMotion, Variants, domAnimation, m, useReducedMotion } from "framer-motion";
 
 const STEPS = [
   {
@@ -130,46 +130,48 @@ export function HowItWorksPipeline() {
           </p>
         </div>
 
-        <motion.div
-          className="relative"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-        >
-          {/* Horizontal connecting line (Desktop only) */}
-          <div className="hidden md:block absolute top-12 left-[10%] right-[10%] h-[1px] bg-gradient-to-r from-indigo-500/0 via-violet-500/50 to-fuchsia-500/0"></div>
+        <LazyMotion features={domAnimation} strict>
+          <m.div
+            className="relative"
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+          >
+            {/* Horizontal connecting line (Desktop only) */}
+            <div className="hidden md:block absolute top-12 left-[10%] right-[10%] h-[1px] bg-gradient-to-r from-indigo-500/0 via-violet-500/50 to-fuchsia-500/0"></div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-6">
-            {STEPS.map((step, index) => (
-              <motion.div
-                key={step.num}
-                variants={itemVariants}
-                className="relative flex flex-col items-center text-center group"
-              >
-                {/* Number background */}
-                <div className="absolute -top-10 font-display text-8xl font-black text-white/5 select-none -z-10 group-hover:text-white/10 transition-colors duration-500">
-                  {step.num}
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-12 md:gap-6">
+              {STEPS.map((step, index) => (
+                <m.div
+                  key={step.num}
+                  variants={itemVariants}
+                  className="relative flex flex-col items-center text-center group"
+                >
+                  {/* Number background */}
+                  <div className="absolute -top-10 font-display text-8xl font-black text-white/5 select-none -z-10 group-hover:text-white/10 transition-colors duration-500">
+                    {step.num}
+                  </div>
 
-                {/* Icon bubble */}
-                <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm flex items-center justify-center mb-6 shadow-xl relative">
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-white/5 to-transparent pointer-events-none"></div>
-                  {step.icon}
-                </div>
+                  {/* Icon bubble */}
+                  <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm flex items-center justify-center mb-6 shadow-xl relative">
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-white/5 to-transparent pointer-events-none"></div>
+                    {step.icon}
+                  </div>
 
-                {/* Text */}
-                <h3 className="text-xl font-bold text-white mb-2">{step.title}</h3>
-                <p className="text-white/60 text-sm leading-relaxed px-4">{step.desc}</p>
+                  {/* Text */}
+                  <h3 className="text-xl font-bold text-white mb-2">{step.title}</h3>
+                  <p className="text-white/60 text-sm leading-relaxed px-4">{step.desc}</p>
 
-                {/* Mobile vertical line connector */}
-                {index !== STEPS.length - 1 && (
-                  <div className="md:hidden w-[1px] h-12 bg-gradient-to-b from-white/10 to-transparent mt-8"></div>
-                )}
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
+                  {/* Mobile vertical line connector */}
+                  {index !== STEPS.length - 1 && (
+                    <div className="md:hidden w-[1px] h-12 bg-gradient-to-b from-white/10 to-transparent mt-8"></div>
+                  )}
+                </m.div>
+              ))}
+            </div>
+          </m.div>
+        </LazyMotion>
       </div>
     </div>
   );

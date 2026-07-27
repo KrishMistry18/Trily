@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { motion, useSpring } from "framer-motion";
+import { LazyMotion, domAnimation, m, useSpring } from "framer-motion";
 
 export function CustomCursor() {
   const [isVisible, setIsVisible] = useState(false);
@@ -47,14 +47,16 @@ export function CustomCursor() {
   if (isMobile) return null;
 
   return (
-    <motion.div
-      className="pointer-events-none fixed left-0 top-0 z-[100] h-8 w-8 rounded-full bg-indigo-500/30 mix-blend-screen blur-[8px]"
-      style={{
-        x: cursorX,
-        y: cursorY,
-        opacity: isVisible ? 1 : 0,
-      }}
-      transition={{ opacity: { duration: 0.2 } }}
-    />
+    <LazyMotion features={domAnimation} strict>
+      <m.div
+        className="pointer-events-none fixed left-0 top-0 z-[100] h-8 w-8 rounded-full bg-indigo-500/30 mix-blend-screen blur-[8px]"
+        style={{
+          x: cursorX,
+          y: cursorY,
+          opacity: isVisible ? 1 : 0,
+        }}
+        transition={{ opacity: { duration: 0.2 } }}
+      />
+    </LazyMotion>
   );
 }
