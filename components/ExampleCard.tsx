@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
 import Link from "next/link";
 
@@ -10,16 +10,41 @@ import { OfficialExample } from "@/types/db";
 
 export function ExampleCard({ example }: { example: OfficialExample }) {
   const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [scale, setScale] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setScale(entry.contentRect.width / 1440);
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="group flex flex-col rounded-2xl bg-white/5 border border-white/10 overflow-hidden hover:border-white/20 transition-colors shadow-sm">
       {/* Interactive Thumbnail */}
-      <div className="relative aspect-[16/10] @container bg-black overflow-hidden border-b border-white/10">
-        <div className="absolute top-4 left-4 z-10 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-xs font-semibold text-white/90">
-          {example.industryTag}
+      <div
+        ref={containerRef}
+        className="relative aspect-[16/10] bg-black overflow-hidden border-b border-white/10"
+      >
+        <div className="absolute top-4 left-4 z-10 flex gap-2">
+          <div className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-xs font-semibold text-white/90">
+            {example.industryTag}
+          </div>
+          <div className="px-3 py-1 rounded-full bg-primary/80 backdrop-blur-md border border-white/10 text-xs font-semibold text-white/90">
+            {example.patternTag}
+          </div>
         </div>
 
         {/* Iframe wrapper for scaling */}
-        <div className="absolute top-0 left-0 w-[1440px] h-[900px] origin-top-left [transform:scale(calc(100cqi/1440))] transition-transform duration-700 ease-out group-hover:[transform:scale(calc(104cqi/1440))]">
+        <div
+          className="absolute top-0 left-0 w-[1440px] h-[900px] origin-top-left [transform:scale(var(--scale))] transition-transform duration-700 ease-out group-hover:[transform:scale(var(--scale-hover))]"
+          style={{ "--scale": scale, "--scale-hover": scale * 1.04 } as React.CSSProperties}
+        >
           {/* Loading shimmer */}
           {!iframeLoaded && <div className="absolute inset-0 bg-slate-100 animate-pulse z-0" />}
           <iframe
@@ -48,8 +73,9 @@ export function ExampleCard({ example }: { example: OfficialExample }) {
 
       {/* Details */}
       <div className="p-5 flex-1 flex flex-col">
-        <h3 className="text-lg font-bold text-white mb-2">{example.title}</h3>
-        <p className="text-sm text-white/50 line-clamp-2 leading-relaxed">
+        <h3 className="text-lg font-bold text-white mb-1">{example.title}</h3>
+        <p className="text-sm font-medium text-white/80 mb-2">{example.description}</p>
+        <p className="text-xs text-white/50 line-clamp-2 leading-relaxed italic mt-auto">
           &quot;{example.prompt}&quot;
         </p>
       </div>

@@ -14,12 +14,25 @@ export function ClientGallery({
   examples: OfficialExample[];
   isLoggedIn: boolean;
 }) {
-  const [activeFilter, setActiveFilter] = useState<string>("All");
+  const [activeIndustryFilter, setActiveIndustryFilter] = useState<string>("All Industries");
+  const [activePatternFilter, setActivePatternFilter] = useState<string>("All Patterns");
 
-  const industries = ["All", ...Array.from(new Set(examples.map((ex) => ex.industryTag)))];
+  const industries = [
+    "All Industries",
+    ...Array.from(new Set(examples.map((ex) => ex.industryTag).filter(Boolean))),
+  ];
+  const patterns = [
+    "All Patterns",
+    ...Array.from(new Set(examples.map((ex) => ex.patternTag).filter(Boolean))),
+  ];
 
-  const filteredExamples =
-    activeFilter === "All" ? examples : examples.filter((ex) => ex.industryTag === activeFilter);
+  const filteredExamples = examples.filter((ex) => {
+    const matchIndustry =
+      activeIndustryFilter === "All Industries" || ex.industryTag === activeIndustryFilter;
+    const matchPattern =
+      activePatternFilter === "All Patterns" || ex.patternTag === activePatternFilter;
+    return matchIndustry && matchPattern;
+  });
 
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/20">
@@ -36,20 +49,40 @@ export function ClientGallery({
         </div>
 
         {/* Filter Bar */}
-        <div className="flex flex-wrap justify-center gap-2 mb-12">
-          {industries.map((tag) => (
-            <button
-              key={tag}
-              onClick={() => setActiveFilter(tag)}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
-                activeFilter === tag
-                  ? "bg-white text-black"
-                  : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              {tag}
-            </button>
-          ))}
+        <div className="flex flex-col items-center gap-4 mb-12">
+          {/* Industry Filter */}
+          <div className="flex flex-wrap justify-center gap-2">
+            {industries.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => setActiveIndustryFilter(tag)}
+                className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+                  activeIndustryFilter === tag
+                    ? "bg-white text-black"
+                    : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+
+          {/* Pattern Filter */}
+          <div className="flex flex-wrap justify-center gap-2">
+            {patterns.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => setActivePatternFilter(tag)}
+                className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+                  activePatternFilter === tag
+                    ? "bg-primary text-black"
+                    : "bg-white/5 text-primary/60 hover:bg-white/10 hover:text-primary"
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Grid */}

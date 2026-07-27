@@ -62,6 +62,8 @@ export interface OfficialExample {
   id: string;
   title: string;
   industryTag: string;
+  patternTag: string;
+  description: string;
   prompt: string;
   generatedCode: string;
   slug: string;
