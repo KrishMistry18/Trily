@@ -25,8 +25,14 @@ export async function GET() {
     db.collection("users").doc(userId).get(),
   ]);
 
+  const tier = userDoc.exists ? (userDoc.data()?.subscriptionTier ?? "free") : "free";
+  const resetDate = userDoc.exists
+    ? (userDoc.data()?.creditsResetDate?.toDate?.()?.toISOString() ?? null)
+    : null;
+
   return NextResponse.json({
     balance,
-    tier: userDoc.exists ? (userDoc.data()?.subscriptionTier ?? "free") : "free",
+    tier,
+    resetDate,
   });
 }
